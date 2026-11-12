@@ -6,6 +6,7 @@ import { h, iconButton, setAttr, setHidden, setText } from './dom';
 import { ICONS } from './icons';
 import { notificationState, type Notifier } from './notify';
 import type { UiPrefs } from './prefs';
+import { SetupGroup } from './setup';
 import { SoundSettingsGroup } from './settings-sound';
 import type { SoundControl } from './sound';
 import { AboutGroup } from './version';
@@ -96,6 +97,7 @@ export class SettingsPopover implements UiComponent {
   private remoteGroup: HTMLElement;
   private logoutBtn: HTMLButtonElement;
   private about: AboutGroup;
+  private setup: SetupGroup;
   private demoBusy = false;
   private anchor: HTMLElement | null = null;
 
@@ -190,6 +192,7 @@ export class SettingsPopover implements UiComponent {
 
     this.theme.row.append(world.themeNote);
     this.about = new AboutGroup(ctx);
+    this.setup = new SetupGroup(ctx);
 
     const close = iconButton(ICONS.close, tr('Fechar configurações'), () => this.hide(), 'ui-icon-btn--sm');
     this.el = h(
@@ -216,12 +219,16 @@ export class SettingsPopover implements UiComponent {
       h('div', { class: 'ui-set-group' }, h('h3', { text: tr('Idioma') }), this.language.row),
       this.demoGroup,
       this.remoteGroup,
+      this.setup.el,
       this.about.el,
     );
     this.el.addEventListener('toggle', () => {
       this.anchor?.setAttribute('aria-expanded', String(this.isOpen));
       this.syncRootClass();
-      if (this.isOpen) this.render();
+      if (this.isOpen) {
+        this.render();
+        void this.setup.refresh();
+      }
     });
   }
 
@@ -289,6 +296,7 @@ export class SettingsPopover implements UiComponent {
     this.soundGroup.render();
     setHidden(this.demoGroup, this.ctx.store.mock || access().remote);
     setHidden(this.remoteGroup, !access().remote);
+    this.setup.render();
     this.about.render();
 
     const notif = this.switches.get('browserNotifications')!;

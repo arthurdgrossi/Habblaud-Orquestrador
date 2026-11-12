@@ -1,7 +1,7 @@
 # Novidades
 
 O que entrou em cada versão do Habblaud. Cada versão tem a sua seção aqui, e o texto dela vira as notas da
-[release no GitHub](https://github.com/marmottajr/habblaud/releases) (`npm run release`), que o Habblaud abre em
+[release no GitHub](https://github.com/arthurdgrossi/Habblaud-Orquestrador/releases) (`npm run release`), que o Habblaud abre em
 **Configurações › Sobre › Ver o que mudou**.
 
 O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/), e os números seguem o
@@ -27,8 +27,21 @@ do meio (0.**3**.0).
   painel explica para que ele serve, por que vem desligado e o comando para ligar (`HABBLAUD_PTY=1 npm start`).
 - **Escritório vazio: “Abrir um projeto”.** Ao lado de “Ver demonstração”, um botão leva direto ao painel Projetos
   para começar uma sessão de verdade.
+- **Configurações › Diagnóstico.** Mostra, por conta, o que está instalado e o que falta: o mod do Habblaud, os
+  plugins de permissões e de mensagens, os hooks do Codex, o jeito antigo (tap de statusline e hook de permissão)
+  ainda instalado junto com o novo, o `disableAllHooks` e o terminal interativo. Cada pendência vem com o comando que
+  resolve e um botão de copiar; **Verificar de novo** confere depois de rodar. O Habblaud só lê o `settings.json` e o
+  `hooks.json` de cada conta (nada roda) e só mostra isso no próprio computador.
+- **Fork Habblaud Orquestrador.** Os READMEs dizem o que este fork acrescenta e dão o crédito ao Habblaud original; o
+  clone, o link **Código no GitHub**, os plugins e a verificação de versão nova apontam para
+  `arthurdgrossi/Habblaud-Orquestrador`.
 
 ### Corrigido
+
+- **Windows: `npm run demo` e `npm run dev` funcionam no cmd e no PowerShell.** O demo ligava o modo demonstração
+  com uma variável antes do comando, que o cmd do Windows não entende; agora passa `--demo` ao servidor (o
+  `HABBLAUD_DEMO=1` continua valendo). O `--exclude` do `npm run dev` usava aspas simples, que o cmd passava junto
+  com o caminho. Os requisitos dos READMEs agora incluem o Windows, com o jeito de passar variáveis no PowerShell.
 
 - **Codex no Windows: os pedidos de aprovação voltam a aparecer no escritório.** O `npm run codex:install` gravava o
   comando do hook com aspas simples (`'C:\…\node.exe' 'C:\…\hook.mjs'`), que só funciona no bash: no PowerShell e

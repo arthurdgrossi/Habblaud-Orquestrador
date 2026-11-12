@@ -11,6 +11,12 @@
 
 <p align="center"><b>English</b> · <a href="README.pt-BR.md">Português</a> · <a href="README.es.md">Español</a> · <a href="README.fr.md">Français</a></p>
 
+> **Habblaud Orquestrador** is a fork of [Habblaud](https://github.com/marmottajr/habblaud), created by Márcio Junior and released under the MIT
+> license. This fork adds **Projects** (save your projects and open a Claude Code or Codex session in one click), the
+> **Orchestrator** (a Claude Code that takes the day's tasks and opens up to 4 sessions, with every permission still
+> coming to you) and a **Diagnostics** panel in Settings that shows what is left to install. Everything else comes from
+> the original project. Thanks to its author!
+
 <p align="center">
   <img alt="Node.js 22.12+" src="https://img.shields.io/badge/node-%E2%89%A522.12-5fa04e?logo=node.js&logoColor=white" />
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-7-3178c6?logo=typescript&logoColor=white" />
@@ -127,7 +133,8 @@ shrinks on its own.
 
 ### Requirements
 
-- **macOS** (tested) or Linux.
+- **macOS** (tested), **Windows** 10/11 or Linux. On Windows (PowerShell), set variables before the command
+  like this: `$env:HABBLAUD_PTY=1; npm start` (instead of `HABBLAUD_PTY=1 npm start`).
 - **[Claude Code](https://code.claude.com)** installed, with one or more accounts (2.1.287 or newer for the mod).
 - **Node.js 22.12+** and **npm** (developed with Node 24; Docker already uses Node 24).
 - **Docker Desktop** (or Docker Engine with Compose v2), if you're going to run it in a container.
@@ -135,8 +142,8 @@ shrinks on its own.
 ### 1. Get the project
 
 ```bash
-git clone https://github.com/marmottajr/habblaud.git
-cd habblaud
+git clone https://github.com/arthurdgrossi/Habblaud-Orquestrador.git
+cd Habblaud-Orquestrador
 npm install
 ```
 
@@ -301,7 +308,7 @@ in the clear on the network). In Node mode: `HABBLAUD_REMOTE_PORT` and `HABBLAUD
 ### Updating
 
 The version in use shows up in the top bar, next to "Connected", and in **Settings › About**. Every 6 hours
-Habblaud checks GitHub for a new version (the [releases](https://github.com/marmottajr/habblaud/releases)
+Habblaud checks GitHub for a new version (the [releases](https://github.com/arthurdgrossi/Habblaud-Orquestrador/releases)
 of this repository). When there is one, the green **New version** badge appears in place of the number, along with a notice and a dot on the
 settings button. **About** has the link to what changed and the **Check now** button (each version's notes
 are also in [`CHANGELOG.md`](CHANGELOG.md)). To update:
@@ -940,7 +947,7 @@ metadata (letter, email, organization) is read on the host by `docker:up` and pa
   (`habblaud-mensagens`) is separate precisely because it acts: it types into the session what you sent from the office.
 - **Local only, by default:** the server only accepts connections from the computer it runs on; opening it to the local network is optional.
   There's no telemetry. The only external call is the new-version check: every 6 hours, an anonymous request,
-  with no token, to the public GitHub API (`api.github.com/repos/marmottajr/habblaud/releases/latest`). It doesn't send anything
+  with no token, to the public GitHub API (`api.github.com/repos/arthurdgrossi/Habblaud-Orquestrador/releases/latest`). It doesn't send anything
   about your sessions; GitHub only sees your IP and the version in use, which goes in the `User-Agent`.
   `HABBLAUD_UPDATE_CHECK=0` turns off the request.
   [Habblaud World](#habblaud-world) (on by default) only sends something to the world server after you create an

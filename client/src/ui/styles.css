@@ -11219,7 +11219,7 @@ html.is-replay #world {
   padding: 6px 8px;
   border-radius: 6px;
   background: var(--ui-line);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   user-select: all;
   overflow-wrap: anywhere;
@@ -11236,4 +11236,87 @@ html.is-replay #world {
   .ui-projects {
     width: calc(100vw - 16px);
   }
+}
+
+/* Configurações › Diagnóstico (ui/setup.ts) */
+.ui-setup__body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ui-setup__title {
+  margin: 0 0 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ui-muted);
+}
+
+.ui-setup__list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ui-setup__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.ui-setup__mark {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ui-bg-solid);
+  background: var(--ui-muted);
+}
+
+.ui-setup__row.is-ok .ui-setup__mark {
+  background: var(--lv-ok);
+}
+
+.ui-setup__row.is-warn .ui-setup__mark {
+  background: var(--lv-warn);
+}
+
+.ui-setup__row.is-todo .ui-setup__mark {
+  background: var(--lv-crit);
+}
+
+.ui-setup__row.is-info .ui-setup__mark {
+  background: var(--ui-accent);
+}
+
+.ui-setup__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ui-setup__fix {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.ui-setup__fix code {
+  padding: 3px 6px;
+  border-radius: 5px;
+  background: var(--ui-line);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  user-select: all;
+  overflow-wrap: anywhere;
 }

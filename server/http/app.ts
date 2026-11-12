@@ -25,7 +25,7 @@ import { HOST_WAIT_MS } from '../host-wait';
 import { InvalidProjects, parseProjects, type ProjectStore } from '../projects/store';
 import type { ProjectOpenResult } from '../projects/window';
 import { ptyRequestProblem } from './pty';
-import type { SavedProject } from '../../shared/types';
+import type { SavedProject, SetupReport } from '../../shared/types';
 
 export interface ApiDeps {
   office: Office;
@@ -102,6 +102,8 @@ export interface ApiDeps {
   projects?: ProjectStore;
   /** POST /api/projects/open {id, tool?, model?}: abre o projeto numa janela de terminal (projects/window.ts). */
   openProjectWindow?: (p: SavedProject, body: { tool?: unknown; model?: unknown }) => Promise<ProjectOpenResult>;
+  /** GET /api/setup: o que falta instalar em cada conta (setup/check.ts); só pelo próprio computador. */
+  setup?: () => SetupReport;
 }
 
 /** GET /api/agents/:id/terminal (ids nunca contêm '/'). */
@@ -393,6 +395,14 @@ export function createApiHandler(deps: ApiDeps): (req: IncomingMessage, res: Ser
           ),
         });
       }
+      return true;
+    }
+    if (path === '/api/setup') {
+      // Só estados (ligado/ausente), mas das pastas de configuração desta máquina: nunca pela porta remota.
+      if (!isRead) methodNotAllowed(res, 'GET');
+      else if (isRemote(req)) sendJson(res, 403, { error: tr('o diagnóstico só pode ser visto no próprio computador') });
+      else if (!deps.setup) sendJson(res, 404, { error: tr('rota desconhecida') });
+      else sendJson(res, 200, deps.setup());
       return true;
     }
     if (path === '/api/access') {

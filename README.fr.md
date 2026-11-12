@@ -11,6 +11,12 @@
 
 <p align="center"><a href="README.md">English</a> · <a href="README.pt-BR.md">Português</a> · <a href="README.es.md">Español</a> · <b>Français</b></p>
 
+> **Habblaud Orquestrador** est un fork de [Habblaud](https://github.com/marmottajr/habblaud), créé par Márcio Junior et publié sous licence MIT. Ce
+> fork ajoute les **Projets** (gardez vos projets et ouvrez une session Claude Code ou Codex en un clic),
+> l'**Orchestrateur** (un Claude Code qui reçoit les tâches du jour et ouvre jusqu'à 4 sessions, toutes les permissions
+> vous revenant toujours) et un panneau **Diagnostic** dans les Paramètres, qui montre ce qui reste à installer. Tout le
+> reste vient du projet original. Merci à son auteur !
+
 <p align="center">
   <img alt="Node.js 22.12+" src="https://img.shields.io/badge/node-%E2%89%A522.12-5fa04e?logo=node.js&logoColor=white" />
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-7-3178c6?logo=typescript&logoColor=white" />
@@ -131,7 +137,8 @@ l'immeuble ne garde pas de trous et rétrécit tout seul.
 
 ### Prérequis
 
-- **macOS** (testé) ou Linux.
+- **macOS** (testé), **Windows** 10/11 ou Linux. Sous Windows (PowerShell), la variable avant la commande s'écrit
+  ainsi : `$env:HABBLAUD_PTY=1; npm start` (au lieu de `HABBLAUD_PTY=1 npm start`).
 - **[Claude Code](https://code.claude.com)** installé, avec un ou plusieurs comptes (2.1.287 ou plus récent pour le mod).
 - **Node.js 22.12+** et **npm** (développé avec Node 24 ; l'image Docker utilise déjà Node 24).
 - **Docker Desktop** (ou Docker Engine avec Compose v2), si vous voulez le faire tourner dans un conteneur.
@@ -139,8 +146,8 @@ l'immeuble ne garde pas de trous et rétrécit tout seul.
 ### 1. Téléchargez le projet
 
 ```bash
-git clone https://github.com/marmottajr/habblaud.git
-cd habblaud
+git clone https://github.com/arthurdgrossi/Habblaud-Orquestrador.git
+cd Habblaud-Orquestrador
 npm install
 ```
 
@@ -315,7 +322,7 @@ cookie en clair sur le réseau). En mode Node : `HABBLAUD_REMOTE_PORT` et `HABBL
 ### Mettre à jour
 
 La version utilisée apparaît dans la barre du haut, à côté de « Connecté », et dans **Réglages › À propos**. Toutes les
-6 heures, Habblaud vérifie sur GitHub si une nouvelle version est sortie (les [releases](https://github.com/marmottajr/habblaud/releases)
+6 heures, Habblaud vérifie sur GitHub si une nouvelle version est sortie (les [releases](https://github.com/arthurdgrossi/Habblaud-Orquestrador/releases)
 de ce dépôt). Si c'est le cas, le badge vert **Nouvelle version** remplace le numéro, avec une alerte et un point sur
 le bouton des réglages. Dans **À propos**, vous trouverez le lien vers ce qui a changé et le bouton **Vérifier
 maintenant** (les notes de chaque version sont aussi dans [`CHANGELOG.md`](CHANGELOG.md)). Pour mettre à jour :
@@ -986,7 +993,7 @@ avec `no-new-privileges`. Les métadonnées des comptes (lettre, e-mail, organis
 - **Local uniquement, par défaut :** le serveur n'accepte que les connexions venant de l'ordinateur lui-même ; ouvrir
   l'accès au réseau local est facultatif. Il n'y a pas de télémétrie. Le seul appel externe est la vérification de
   nouvelle version : toutes les 6 heures, une requête anonyme, sans token, à l'API publique de GitHub
-  (`api.github.com/repos/marmottajr/habblaud/releases/latest`). Elle n'envoie rien sur vos sessions ; GitHub ne voit que
+  (`api.github.com/repos/arthurdgrossi/Habblaud-Orquestrador/releases/latest`). Elle n'envoie rien sur vos sessions ; GitHub ne voit que
   votre IP et la version utilisée, qui figure dans le `User-Agent`.
   `HABBLAUD_UPDATE_CHECK=0` désactive la requête.
   [Habblaud World](#habblaud-world) (activé par défaut) n'envoie quelque chose au serveur du monde qu'après la création

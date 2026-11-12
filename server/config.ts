@@ -15,7 +15,7 @@ export interface ServerConfig {
   host: string;
   /** `--dev`: Vite em middleware mode (HMR) no mesmo servidor. */
   dev: boolean;
-  /** Liga o simulador de demonstração ao iniciar. */
+  /** Liga o simulador de demonstração ao iniciar (`--demo` ou HABBLAUD_DEMO=1). */
   demo: boolean;
   /** Rodando dentro de um container (PIDs do registro são do host: não dá para checá-los). */
   inDocker: boolean;
@@ -234,7 +234,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env, argv: string[] 
     port: Number.isFinite(port) && port > 0 && port < 65536 ? port : 4747,
     host,
     dev: argv.includes('--dev'),
-    demo: isTruthy(env.HABBLAUD_DEMO),
+    // `--demo` (o npm run demo) funciona em qualquer shell; a variável antes do comando não roda no cmd do Windows.
+    demo: argv.includes('--demo') || isTruthy(env.HABBLAUD_DEMO),
     inDocker,
     home,
     claudeDirs: discoverClaudeDirs(env, home),

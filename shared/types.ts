@@ -756,3 +756,48 @@ export interface InboxMessage {
   /** O texto como foi digitado: o plugin o manda à sessão como se você o tivesse digitado. */
   text: string;
 }
+
+// ---------------------------------------------------------------------------------------------
+// Diagnóstico da instalação (GET /api/setup, server/setup/check.ts; Configurações › Diagnóstico)
+// ---------------------------------------------------------------------------------------------
+
+/** Plugin do Habblaud numa conta do Claude Code: ligado, instalado e desligado, ou ausente. */
+export type SetupPluginState = 'on' | 'off' | 'missing';
+
+/** O que o Habblaud vê de uma conta do Claude Code, só pelo settings.json dela (nenhum comando roda). */
+export interface SetupClaudeAccount {
+  provider: 'claude';
+  id: string;
+  name: string;
+  /** settings.json: lido, ausente (conta sem configuração ainda) ou ilegível. */
+  settings: 'ok' | 'missing' | 'error';
+  mod: SetupPluginState;
+  permissions: SetupPluginState;
+  messages: SetupPluginState;
+  /** Jeito antigo ainda instalado: o tap de statusline (uso) e o hook de permissão do settings.json. */
+  legacyTap: boolean;
+  legacyHook: boolean;
+  /** disableAllHooks no settings.json: nenhum mod nem hook roda. */
+  hooksDisabled: boolean;
+  usage: 'ok' | 'stale' | 'disabled';
+}
+
+/** Uma pasta do Codex: os hooks do Habblaud no hooks.json dela. */
+export interface SetupCodexAccount {
+  provider: 'codex';
+  id: string;
+  name: string;
+  /** Todos os eventos com o hook do Habblaud, só alguns, nenhum, ou hooks.json ilegível. */
+  hooks: 'ok' | 'partial' | 'missing' | 'error';
+  /** O hook de PermissionRequest (responder aprovações pelo escritório) está lá. */
+  permissionHook: boolean;
+}
+
+export interface SetupReport {
+  /** O Habblaud roda no Docker: os comandos de instalação rodam no computador, na pasta do Habblaud. */
+  docker: boolean;
+  /** O servidor roda no Windows: os comandos com variável de ambiente saem no jeito do PowerShell. */
+  windows: boolean;
+  pty: { enabled: boolean; reason?: string };
+  accounts: Array<SetupClaudeAccount | SetupCodexAccount>;
+}

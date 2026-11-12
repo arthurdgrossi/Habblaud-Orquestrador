@@ -31,6 +31,7 @@ import { statSync } from 'node:fs';
 import { ProjectStore } from './projects/store';
 import { createProjectWindowOpener, createWindowLauncher } from './projects/window';
 import { prepareOrchestrator } from './orchestrator/setup';
+import { setupReport } from './setup/check';
 import { PermissionRegistry } from './permissions/registry';
 import { codexAccountOf } from './codex/http';
 import { createCodexQueueRunner, findCodexBin } from './messages/codex';
@@ -408,6 +409,12 @@ const api = createApiHandler({
         return r;
       }
     : undefined,
+  setup: () =>
+    setupReport({
+      docker: config.inDocker,
+      pty: ptys ? { enabled: true } : { enabled: false, reason: ptyOff },
+      accounts: accounts.allEntries().map((a) => ({ id: a.id, provider: a.provider, name: a.detected.name, dir: a.dir, usage: accounts.usageView(a.id).status })),
+    }),
   spawn,
   attachments,
   dictation,
