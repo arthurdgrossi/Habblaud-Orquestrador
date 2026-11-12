@@ -27,6 +27,11 @@ do meio (0.**3**.0).
   painel explica para que ele serve, por que vem desligado e o comando para ligar (`HABBLAUD_PTY=1 npm start`).
 - **Escritório vazio: “Abrir um projeto”.** Ao lado de “Ver demonstração”, um botão leva direto ao painel Projetos
   para começar uma sessão de verdade.
+- **O orquestrador à vista no escritório.** Na lista e nas gavetas, o crachá dourado **Orquestrador · 3/4** mostra
+  quantas sessões ele tem abertas, e as sessões que ele abriu ganham o crachá **Do orquestrador** (também as do
+  Codex, ligadas pela pasta e pela hora em que começaram). Na gaveta dele, **Sessões que ele abriu** lista cada uma;
+  na gaveta de uma delas, **Aberta pelo orquestrador** leva até ele. No mapa, a etiqueta do personagem ganha o selo
+  **ORQUESTRADOR** (e **ORQ** nas sessões dele).
 - **Configurações › Diagnóstico.** Mostra, por conta, o que está instalado e o que falta: o mod do Habblaud, os
   plugins de permissões e de mensagens, os hooks do Codex, o jeito antigo (tap de statusline e hook de permissão)
   ainda instalado junto com o novo, o `disableAllHooks` e o terminal interativo. Cada pendência vem com o comando que

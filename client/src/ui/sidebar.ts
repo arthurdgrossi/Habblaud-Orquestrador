@@ -10,6 +10,7 @@ import { ICONS } from './icons';
 import { groupRooms, type AgentNode, type RoomGroup } from './model';
 import { officeIsEmpty } from './overlays';
 import { createAgentRow, updateAgentRow } from './rows';
+import { orchBadgeOf } from './orchestration';
 import { createAccountChip, createProgress, updateAccountChip, updateProgress } from './widgets';
 import { tr } from '../../../shared/i18n';
 
@@ -413,7 +414,8 @@ export class Sidebar implements UiComponent {
 
   private updateRow(row: HTMLElement, a: AgentInfo): void {
     const sel = this.ctx.selection();
-    updateAgentRow(row, a, this.ctx.account(a.account), sel?.type === 'agent' && sel.id === a.id, this.ctx.now(), this.ctx.store.snapshot?.agents);
+    const snap = this.ctx.store.snapshot;
+    updateAgentRow(row, a, this.ctx.account(a.account), sel?.type === 'agent' && sel.id === a.id, this.ctx.now(), snap?.agents, orchBadgeOf(snap, a.id));
   }
 
   private pick(id: string): void {

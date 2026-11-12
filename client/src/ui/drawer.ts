@@ -44,6 +44,8 @@ import { canRenameRoom } from './roomrename';
 import { accountChipLabel, accountProvider, CODEX_LIVE_HINT, codexApprovalLabel, providerOf } from './provider';
 import { ptyControllable } from './ptyapi';
 import { createAgentRow, updateAgentRow } from './rows';
+import { agentsWithRole, orchBadgeOf } from './orchestration';
+import { ORCHESTRATOR_MAX } from '../../../shared/orchestration';
 import { SocialSection } from './social';
 import { TERMINAL_UNAVAILABLE_HINT, type TerminalControl } from './terminal';
 import { Movable } from './movable';
@@ -251,6 +253,10 @@ class AgentView {
   private teamSec: ReturnType<typeof section>;
   private team: KeyedList<AgentInfo>;
   private teamEmpty: HTMLElement;
+  /** Orquestração: as sessões que o orquestrador abriu (na gaveta dele) ou quem abriu esta sessão. */
+  private orchSec: ReturnType<typeof section>;
+  private orchList: KeyedList<AgentInfo>;
+  private orchEmpty: HTMLElement;
   private timeline: KeyedList<Activity>;
   private timelineSec: ReturnType<typeof section>;
   private timelineMore: HTMLButtonElement;
@@ -373,7 +379,17 @@ class AgentView {
     this.team = new KeyedList<AgentInfo>(teamList, {
       key: (a) => a.id,
       create: (a) => createAgentRow(a, (id) => ctx.select({ type: 'agent', id }, { focus: true }), 'sm'),
-      update: (row, a) => updateAgentRow(row, a, ctx.account(a.account), false, ctx.now(), ctx.store.snapshot?.agents),
+      update: (row, a) => updateAgentRow(row, a, ctx.account(a.account), false, ctx.now(), ctx.store.snapshot?.agents, orchBadgeOf(ctx.store.snapshot, a.id)),
+    });
+
+    const orchList = h('div', { class: 'ui-team' });
+    this.orchEmpty = h('p', { class: 'ui-muted ui-small' });
+    this.orchSec = section(tr('Sessões que ele abriu'), orchList, this.orchEmpty);
+    this.orchSec.el.hidden = true;
+    this.orchList = new KeyedList<AgentInfo>(orchList, {
+      key: (a) => a.id,
+      create: (a) => createAgentRow(a, (id) => ctx.select({ type: 'agent', id }, { focus: true }), 'sm'),
+      update: (row, a) => updateAgentRow(row, a, ctx.account(a.account), false, ctx.now(), ctx.store.snapshot?.agents, orchBadgeOf(ctx.store.snapshot, a.id)),
     });
 
     const tl = h('ol', { class: 'ui-timeline' });
@@ -421,6 +437,7 @@ class AgentView {
       this.msgSec.el,
       this.social.el,
       this.tasksSec.el,
+      this.orchSec.el,
       this.teamSec.el,
       this.timelineSec.el,
       statsSec.el,
@@ -646,6 +663,26 @@ class AgentView {
       this.team.sync(parent ? [parent] : []);
     }
 
+    // Orquestração: no orquestrador, as sessões que ele abriu (n/máximo); numa delas, o orquestrador.
+    const snap = this.ctx.store.snapshot;
+    const orch = orchBadgeOf(snap, a.id);
+    setHidden(this.orchSec.el, !orch);
+    if (orch?.role === 'orchestrator') {
+      const mine = agentsWithRole(snap, 'delegated').map((id) => this.ctx.agent(id)).filter((x): x is AgentInfo => !!x);
+      setText(this.orchSec.title, tr('Sessões que ele abriu'));
+      setText(this.orchSec.extra, `${orch.open ?? 0}/${ORCHESTRATOR_MAX}`);
+      setText(this.orchEmpty, tr('Nenhuma sessão aberta por ele agora. Ele abre até {0} ao mesmo tempo.', [ORCHESTRATOR_MAX]));
+      setHidden(this.orchEmpty, mine.length > 0);
+      this.orchList.sync(sortByUrgency(mine));
+    } else if (orch?.role === 'delegated') {
+      const boss = agentsWithRole(snap, 'orchestrator').map((id) => this.ctx.agent(id)).filter((x): x is AgentInfo => !!x);
+      setText(this.orchSec.title, tr('Aberta pelo orquestrador'));
+      setText(this.orchSec.extra, '');
+      setText(this.orchEmpty, tr('O orquestrador já não está no escritório.'));
+      setHidden(this.orchEmpty, boss.length > 0);
+      this.orchList.sync(boss);
+    } else this.orchList.sync([]);
+
     // Linha do tempo (mais recente primeiro). No replay, nada depois do instante reproduzido.
     const until = this.historyUntil();
     this.history = mergeHistory(this.history, a.recent, 200, until);
@@ -859,7 +896,7 @@ class RoomView {
     this.agents = new KeyedList<AgentInfo>(agentsList, {
       key: (a) => a.id,
       create: (a) => createAgentRow(a, (id) => ctx.select({ type: 'agent', id }, { focus: true }), 'sm'),
-      update: (row, a) => updateAgentRow(row, a, ctx.account(a.account), false, ctx.now(), ctx.store.snapshot?.agents),
+      update: (row, a) => updateAgentRow(row, a, ctx.account(a.account), false, ctx.now(), ctx.store.snapshot?.agents, orchBadgeOf(ctx.store.snapshot, a.id)),
     });
 
     this.tasksBar = createProgress(tr('Progresso das tarefas da sala'));

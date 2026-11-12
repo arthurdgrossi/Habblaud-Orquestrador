@@ -14,6 +14,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createRequire } from 'node:module';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import type { PtyInfo, PtyStatus } from '../../shared/types';
+import { ORCHESTRATOR_MAX } from '../../shared/orchestration';
 import { frame } from '../http/sse';
 import { errMsg, log } from '../log';
 import { pidAlive } from '../sources/registry';
@@ -184,8 +185,8 @@ interface SpawnPlan {
   extraArgs?: string[];
 }
 
-/** Terminais que o orquestrador pode manter abertos ao mesmo tempo (fora ele mesmo). */
-export const ORCHESTRATOR_MAX = 4;
+/** Terminais que o orquestrador pode manter abertos ao mesmo tempo (fora ele mesmo): o mesmo número da interface. */
+export { ORCHESTRATOR_MAX };
 export const PROMPT_MAX = 8_000;
 /** Antes do Enter: o Claude Code trata texto + Enter chegando juntos como colagem (o Enter vira quebra de linha). */
 export const SUBMIT_DELAY_MS = 250;

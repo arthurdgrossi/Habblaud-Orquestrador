@@ -11320,3 +11320,19 @@ html.is-replay #world {
   user-select: all;
   overflow-wrap: anywhere;
 }
+
+/* Orquestração (shared/orchestration.ts): o crachá do orquestrador, com o contador, e o das sessões abertas por ele. */
+.ui-role--orch {
+  color: #2a1d00;
+  background: linear-gradient(180deg, #ffd66b, #f2b33d);
+  font-weight: 700;
+}
+
+.ui-role--delegated {
+  color: #ffe2a3;
+  background: rgba(242, 179, 61, 0.16);
+}
+
+.ui-agent.is-orchestrator {
+  box-shadow: inset 3px 0 0 #f2b33d;
+}

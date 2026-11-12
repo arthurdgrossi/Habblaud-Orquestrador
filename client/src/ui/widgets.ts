@@ -6,6 +6,7 @@ import { WORDMARK } from './icons';
 import { shellDoneKind, shellLine, shellStage, statusLabel, type ShellWait } from './model';
 import { accountChipLabel, accountProvider, fallbackShort, showsProviderTag } from './provider';
 import { tr } from '../../../shared/i18n';
+import { ORCHESTRATOR_MAX, type OrchRole } from '../../../shared/orchestration';
 
 /**
  * Chip quadrado com a letra curta da conta ("C", "D") na cor da conta. Conta do Codex: o chip fica vazado (fundo
@@ -52,7 +53,27 @@ export function createRoleBadge(): HTMLElement {
   return h('span', { class: 'ui-role' });
 }
 
-export function updateRoleBadge(badge: HTMLElement, agent: Pick<AgentInfo, 'kind' | 'role' | 'background'>): void {
+/** Papel na orquestração (shared/orchestration.ts): o orquestrador, com as sessões abertas por ele, ou uma delas. */
+export interface OrchBadge {
+  role: OrchRole;
+  /** Sessões abertas agora pelo orquestrador (só no crachá dele). */
+  open?: number;
+}
+
+export function updateRoleBadge(badge: HTMLElement, agent: Pick<AgentInfo, 'kind' | 'role' | 'background'>, orch?: OrchBadge): void {
+  if (orch?.role === 'orchestrator') {
+    const open = orch.open ?? 0;
+    setText(badge, tr('Orquestrador · {0}/{1}', [open, ORCHESTRATOR_MAX]));
+    setVariant(badge, 'ui-role--', 'orch');
+    setTitle(badge, tr('Orquestrador: {0} de {1} sessões abertas por ele', [open, ORCHESTRATOR_MAX]));
+    return;
+  }
+  if (orch?.role === 'delegated' && agent.kind === 'main') {
+    setText(badge, tr('Do orquestrador'));
+    setVariant(badge, 'ui-role--', 'delegated');
+    setTitle(badge, tr('Sessão aberta pelo orquestrador'));
+    return;
+  }
   setText(badge, agent.kind === 'main' ? tr('Principal') : agent.role || tr('Subagente'));
   setVariant(badge, 'ui-role--', agent.kind);
   setTitle(badge, agent.kind === 'main' ? tr('Agente principal') : tr('Subagente: {0}{1}', [agent.role, agent.background ? tr(' (em segundo plano)') : '']));

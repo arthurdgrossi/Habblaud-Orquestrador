@@ -12,6 +12,7 @@ import {
   updateAccountChip,
   updateActivityLine,
   updateRoleBadge,
+  type OrchBadge,
   updateShellActivityLine,
   updateStatusDot,
 } from './widgets';
@@ -66,6 +67,7 @@ export function updateAgentRow(
   selected: boolean,
   now: number,
   agents: readonly AgentInfo[] = [],
+  orch?: OrchBadge,
 ): void {
   const r = refs.get(row);
   if (!r) return;
@@ -74,7 +76,8 @@ export function updateAgentRow(
   setStyleVar(row, '--acc', account?.color ?? '#8b98b3');
   setText(r.name, agent.name);
   updateAccountChip(r.chip, account, agent.account, agent.provider);
-  updateRoleBadge(r.role, agent);
+  updateRoleBadge(r.role, agent, orch);
+  row.classList.toggle('is-orchestrator', orch?.role === 'orchestrator');
   const title = agent.title?.trim() ?? '';
   setText(r.task, title);
   setTitle(r.task, title);
@@ -84,8 +87,9 @@ export function updateAgentRow(
   const showIdle = idleFor >= 60_000;
   setText(r.since, showIdle ? tr('ocioso {0}', [formatDuration(idleFor)]) : '');
   setTitle(r.since, showIdle ? tr('Ocioso há {0}', [formatDuration(idleFor)]) : '');
-  setHidden(r.since, !showIdle);
-  setHidden(r.role, showIdle);
+  // O crachá do orquestrador fica sempre (o contador é o que importa nele).
+  setHidden(r.role, showIdle && !orch);
+  setHidden(r.since, !showIdle || !!orch);
   // Esperando um shell (ou parado num comando longo): ampulheta no ponto e o cronômetro na linha de atividade.
   const wait = shellWaitIn(agent, agents, now);
   const status = wait ? 'shell' : agent.status;
@@ -100,6 +104,6 @@ export function updateAgentRow(
   setAttr(
     row,
     'aria-label',
-    `${agent.name}, ${agent.kind === 'main' ? tr('agente principal') : tr('subagente {0}', [agent.role])}, ${account?.name ?? agent.account}${agent.provider === 'codex' ? ' (Codex)' : ''}, ${statusLabel(status)}${doing ? `: ${doing}` : ''}`,
+    `${agent.name}, ${orch?.role === 'orchestrator' ? tr('orquestrador') : orch?.role === 'delegated' ? tr('sessão aberta pelo orquestrador') : agent.kind === 'main' ? tr('agente principal') : tr('subagente {0}', [agent.role])}, ${account?.name ?? agent.account}${agent.provider === 'codex' ? ' (Codex)' : ''}, ${statusLabel(status)}${doing ? `: ${doing}` : ''}`,
   );
 }

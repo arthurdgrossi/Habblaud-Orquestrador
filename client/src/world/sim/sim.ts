@@ -1,6 +1,7 @@
 // Simulação do escritório: concilia snapshots do servidor com os personagens e salas do mundo,
 // planeja comportamentos e executa as filas de passos a cada frame.
 import { partsKey } from '../../../../shared/appearance';
+import { orchestrationRoles, type OrchRole } from '../../../../shared/orchestration';
 import type { AgentInfo, OfficeSnapshot, Provider, RoomInfo } from '../../../../shared/types';
 import type { ArtModule, Dir, RoomTheme } from '../../art/api';
 import type { WorldOptions } from '../api';
@@ -119,6 +120,8 @@ export class Sim {
   readonly hiddenRooms = new Set<string>();
   /** Contas do snapshot (id -> cor/letra/ferramenta) para etiquetas: a do Codex ganha chip vazado e o selo. */
   accounts = new Map<string, { short: string; color: string; name: string; provider?: Provider }>();
+  /** Papel de cada agente na orquestração (o crachá da etiqueta; shared/orchestration.ts). */
+  orch = new Map<string, OrchRole>();
   /** Depuração: salas/agentes extras mesclados a cada snapshot (sessões simuladas). */
   injected: { rooms: RoomInfo[]; agents: AgentInfo[] } = { rooms: [], agents: [] };
   /** Depuração: campos sobrepostos a agentes reais do snapshot (ex.: shells forçados). */
@@ -169,6 +172,7 @@ export class Sim {
     this.now = now;
     const first = !this.initialized;
     this.initialized = true;
+    this.orch = orchestrationRoles(snap);
     this.accounts = new Map(snap.accounts.map((a) => [a.id, { short: a.short, color: a.color, name: a.name, ...(a.provider === 'codex' ? { provider: a.provider } : {}) }]));
 
     // ---- salas

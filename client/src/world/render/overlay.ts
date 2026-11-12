@@ -868,14 +868,29 @@ export class Overlay {
 
   // =================================================================== etiquetas
 
+  /**
+   * Selo da etiqueta: o do visitante, o do orquestrador (sempre, mesmo compacta), o das sessões abertas por ele e o
+   * "SUB" (esses dois fora do modo compacto, onde viram um pontinho).
+   */
+  private badgeOf(l: Label): { text: string; bg: string; fg: string } | null {
+    const ch = l.ch;
+    if (ch === this.sim.visitor) return { text: visitorBadge(), bg: ch.appearance.lanyard ?? '#f2b33d', fg: '#2a2000' };
+    const orch = this.sim.orch.get(ch.id);
+    if (orch === 'orchestrator') return { text: orchestratorBadge(), bg: '#ffd66b', fg: '#2a1d00' };
+    if (l.compact) return null;
+    if (orch === 'delegated' && ch.info.kind === 'main') return { text: delegatedBadge(), bg: 'rgba(242,179,61,0.85)', fg: '#2a1d00' };
+    if (ch.info.kind === 'sub') return { text: 'SUB', bg: ch.appearance.lanyard ?? '#f2b33d', fg: '#2a2000' };
+    return null;
+  }
+
   /** Larguras das partes da etiqueta. O selo "CODEX" (como o "SUB") só aparece fora do modo compacto. */
   private labelWidth(l: Label): { nameW: number; chipW: number; badgeW: number; codexW: number } {
     const ch = l.ch;
     const acc = this.sim.accounts.get(ch.info.account);
     const nameW = this.measure(LABEL_FONT, ch.info.name);
     const chipW = acc ? 13 : 0;
-    const visitor = ch === this.sim.visitor;
-    const badgeW = visitor ? this.measure(BADGE_FONT, visitorBadge()) + 7 : ch.info.kind === 'sub' && !l.compact ? this.measure(BADGE_FONT, 'SUB') + 7 : 0;
+    const badge = this.badgeOf(l);
+    const badgeW = badge ? this.measure(BADGE_FONT, badge.text) + 7 : 0;
     const codexW = ch.info.provider === 'codex' && !l.compact ? this.measure(BADGE_FONT, CODEX_BADGE) + 7 : 0;
     return { nameW, chipW, badgeW, codexW };
   }
@@ -947,16 +962,17 @@ export class Overlay {
     ctx.fillStyle = '#f5f7fb';
     ctx.fillText(ch.info.name, cx + 1, y + h / 2 + 0.5);
     cx += nameW + 4;
-    if (badgeW) {
-      ctx.fillStyle = ch.appearance.lanyard ?? '#f2b33d';
+    const badge = this.badgeOf(l);
+    if (badge && badgeW) {
+      ctx.fillStyle = badge.bg;
       ctx.beginPath();
       ctx.roundRect(cx, y + 3, badgeW, h - 6, 4);
       ctx.fill();
       ctx.font = BADGE_FONT;
-      ctx.fillStyle = '#2a2000';
-      ctx.fillText(ch === this.sim.visitor ? visitorBadge() : 'SUB', cx + 3.5, y + h / 2 + 0.5);
+      ctx.fillStyle = badge.fg;
+      ctx.fillText(badge.text, cx + 3.5, y + h / 2 + 0.5);
       cx += badgeW + 3;
-    } else if (sub) {
+    } else if (sub || this.sim.orch.get(ch.id) === 'delegated') {
       // selo compacto: pontinho na cor do crachá
       ctx.fillStyle = ch.appearance.lanyard ?? '#f2b33d';
       ctx.beginPath();
@@ -979,6 +995,16 @@ export class Overlay {
 export function sayIcon(text: string): string {
   const m = /\p{Extended_Pictographic}(?:\uFE0F)?/u.exec(text);
   return m ? m[0] : '💬';
+}
+
+/** Selo da etiqueta do orquestrador (o agente que distribui as tarefas do dia). */
+export function orchestratorBadge(): string {
+  return tr('orquestrador').toLocaleUpperCase();
+}
+
+/** Selo das sessões abertas pelo orquestrador. */
+export function delegatedBadge(): string {
+  return tr('ORQ');
 }
 
 /** Selo da etiqueta do visitante (cena Visita), no lugar do "SUB". */
