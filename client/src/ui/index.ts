@@ -161,6 +161,7 @@ export function createUI(root: HTMLElement, store: OfficeStore, world: WorldApi,
     toggleSettings: () => settings.toggle(topbar.settingsBtn),
     toggleWorld: () => worldDialog.toggle(topbar.worldBtn),
     openAbout: () => settings.showAbout(topbar.settingsBtn),
+    openProjects: () => topbar.openProjects(),
     toggleTimelapse() {
       // O terminal mostra a conversa de agora: não combina com o dia reproduzido.
       if (!timelapse.isOpen && terminal.isOpen) terminal.close();

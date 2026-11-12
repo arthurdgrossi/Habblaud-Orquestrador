@@ -3,6 +3,7 @@
 //   POST /api/pty                      {cwd, account?, cols?, rows?}: sessão nova do Claude Code
 //   GET  /api/pty/:id/stream           SSE: reset (tela guardada) | data | exit
 //   POST /api/pty/:id/input|resize|close
+//   POST /api/pty/orchestrator/send    {terminal_id?, agente_id?, texto}: mensagem do orquestrador (só nas sessões dele)
 //   POST /api/agents/:id/stop          encerra o agente (aqui ou noutro terminal)
 //   POST /api/agents/:id/takeover      assume a sessão: encerra lá e retoma aqui
 // Quem controla um terminal destes executa comandos na máquina: só conexões do próprio computador, com Host
@@ -97,6 +98,13 @@ export function createPtyRoutes(ptys: PtyManager, orchestrator?: OrchestratorLau
       if (!orchestrator) throw new HttpError(503, tr('orquestrador indisponível'));
       const body = (await readJson(req)) as Record<string, unknown>;
       return sendJson(res, 201, orchestrator({ model: body?.model, cols: body?.cols, rows: body?.rows }));
+    }
+    if (rawId === 'orchestrator' && act === 'send') {
+      // Usado pelo MCP do orquestrador: as regras (sessão dele, agente sem pedido pendente) valem aqui no servidor.
+      if (method !== 'POST') return notAllowed(res, 'POST');
+      const body = (await readJson(req)) as Record<string, unknown>;
+      const info = await ptys.orchestratorSend({ terminalId: body?.terminal_id, agentId: body?.agente_id }, body?.texto);
+      return sendJson(res, 200, { enviado: true, terminal_id: info.id });
     }
     const id = decode(rawId);
     if (act === 'stream') {

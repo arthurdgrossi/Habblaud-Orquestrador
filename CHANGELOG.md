@@ -20,7 +20,13 @@ do meio (0.**3**.0).
   escritório como os outros agentes e recebe as tarefas do dia. Pelo MCP do Habblaud
   (`mod/habblaud-orquestrador/mcp.mjs`) ele lista projetos e agentes, abre sessões com a tarefa, a ferramenta e o
   modelo que escolher, manda mensagens e encerra o que abriu. No máximo **4 sessões abertas por ele** ao mesmo tempo
-  (o Habblaud recusa a quinta), e **as permissões continuam todas com você**.
+  (o Habblaud recusa a quinta), e **as permissões continuam todas com você**: o orquestrador só digita nas sessões
+  que ele abriu, nunca com o agente esperando você (o Habblaud confere no servidor e recusa), e sem teclas de
+  controle; as sessões abertas por você recebem as mensagens dele pela caixa de mensagens.
+- **Projetos sempre à vista.** O botão de pasta aparece mesmo com o terminal interativo desligado; nesse caso, o
+  painel explica para que ele serve, por que vem desligado e o comando para ligar (`HABBLAUD_PTY=1 npm start`).
+- **Escritório vazio: “Abrir um projeto”.** Ao lado de “Ver demonstração”, um botão leva direto ao painel Projetos
+  para começar uma sessão de verdade.
 
 ### Corrigido
 

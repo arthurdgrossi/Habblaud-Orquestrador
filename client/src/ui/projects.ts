@@ -83,6 +83,11 @@ export class ProjectsPanel {
   private readonly addTool: HTMLSelectElement;
   private readonly addModel: ReturnType<typeof modelInput>;
   private readonly where: HTMLSelectElement;
+  /** O painel de verdade (orquestrador, lista e adicionar) e o aviso de recurso desligado: um ou outro aparece. */
+  private readonly body: HTMLElement;
+  private readonly off: HTMLElement;
+  private readonly offReason: HTMLElement;
+  private enabled: boolean | null = null;
   private anchor?: HTMLElement;
   private projects: SavedProject[] = [];
   private busy = false;
@@ -110,22 +115,39 @@ export class ProjectsPanel {
     this.where.value = readWhere();
     this.where.addEventListener('change', () => writeWhere(this.where.value === 'habblaud' ? 'habblaud' : 'window'));
     const orchBtn = h('button', { class: 'ui-btn ui-perm__btn ui-perm__btn--allow ui-projects__orch', type: 'button', on: { click: () => void this.openOrchestrator() } }, tr('Abrir orquestrador'));
+    this.offReason = h('p', { class: 'ui-rename__hint' });
+    this.off = h(
+      'div',
+      { class: 'ui-set-group ui-projects__off', hidden: true },
+      h('p', { class: 'ui-projects__off-title', text: tr('Os projetos precisam do terminal interativo') }),
+      h('p', {
+        class: 'ui-rename__hint',
+        text: tr('Com ele ligado, aqui você guarda seus projetos e abre, num clique, uma sessão do Claude Code ou do Codex na pasta certa, além do orquestrador. Ele vem desligado porque roda programas neste computador.'),
+      }),
+      h('p', { class: 'ui-spawn__label', text: tr('Para ligar, inicie o Habblaud fora do Docker com:') }),
+      h('code', { class: 'ui-projects__cmd', text: 'HABBLAUD_PTY=1 npm start' }),
+      h('code', { class: 'ui-projects__cmd', text: '$env:HABBLAUD_PTY=1; npm start', attrs: { title: 'Windows (PowerShell)' } }),
+      this.offReason,
+      h('button', { class: 'ui-btn', type: 'button', on: { click: () => this.ctx.openHelp() } }, tr('Abrir a ajuda')),
+    );
+    this.body = h(
+      'div',
+      { class: 'ui-set-group ui-projects__body' },
+      orchBtn,
+      h('p', { class: 'ui-rename__hint', text: tr('O orquestrador é um Claude Code (Opus) que recebe as tarefas do dia e abre até 4 sessões nos projetos abaixo. As permissões das sessões continuam vindo para você.') }),
+      h('label', { class: 'ui-projects__row ui-projects__where-row' }, h('span', { class: 'ui-spawn__label', text: tr('Abrir em') }), this.where),
+      this.list,
+      h('p', { class: 'ui-spawn__label', text: tr('Adicionar projeto') }),
+      h('div', { class: 'ui-projects__add' }, this.addName, this.addPath, h('div', { class: 'ui-projects__row' }, this.addTool, this.addModel.input, this.addModel.list, addBtn)),
+      h('p', { class: 'ui-rename__hint', text: tr('Abrir começa uma sessão nova da ferramenta, no modelo escolhido, nesta pasta: numa janela de terminal do computador ou no terminal do Habblaud. Modelo vazio usa o padrão da ferramenta.') }),
+      this.status,
+    );
     this.el = h(
       'div',
       { class: 'ui-popover ui-projects', role: 'dialog', tabIndex: -1, attrs: { 'aria-label': tr('Projetos'), id: 'ui-projects', popover: 'auto' } },
       h('div', { class: 'ui-popover__head' }, h('h2', { text: tr('Projetos') }), close),
-      h(
-        'div',
-        { class: 'ui-set-group ui-projects__body' },
-        orchBtn,
-        h('p', { class: 'ui-rename__hint', text: tr('O orquestrador é um Claude Code (Opus) que recebe as tarefas do dia e abre até 4 sessões nos projetos abaixo. As permissões das sessões continuam vindo para você.') }),
-        h('label', { class: 'ui-projects__row ui-projects__where-row' }, h('span', { class: 'ui-spawn__label', text: tr('Abrir em') }), this.where),
-        this.list,
-        h('p', { class: 'ui-spawn__label', text: tr('Adicionar projeto') }),
-        h('div', { class: 'ui-projects__add' }, this.addName, this.addPath, h('div', { class: 'ui-projects__row' }, this.addTool, this.addModel.input, this.addModel.list, addBtn)),
-        h('p', { class: 'ui-rename__hint', text: tr('Abrir começa uma sessão nova da ferramenta, no modelo escolhido, nesta pasta: numa janela de terminal do computador ou no terminal do Habblaud. Modelo vazio usa o padrão da ferramenta.') }),
-        this.status,
-      ),
+      this.body,
+      this.off,
     );
     this.el.addEventListener('toggle', () => this.anchor?.setAttribute('aria-expanded', String(this.isOpen)));
   }
@@ -138,10 +160,31 @@ export class ProjectsPanel {
     }
   }
 
+  /**
+   * Mostra o painel ou o aviso de como ligar o terminal interativo (o botão Projetos aparece sempre no acesso local,
+   * para o recurso ser encontrado). Chamado ao abrir e a cada render da barra, enquanto aberto.
+   */
+  sync(): void {
+    const on = !!this.ctx.terminals?.interactiveEnabled;
+    if (!on) setText(this.offReason, tr('Agora: {0}.', [this.ctx.store.snapshot?.meta.pty?.reason ?? tr('desligado')]));
+    if (on === this.enabled) return;
+    this.enabled = on;
+    this.body.hidden = !on;
+    this.off.hidden = on;
+    if (on && this.isOpen) void this.load();
+  }
+
+  /** Abre o painel (sem alternar), ancorado no botão. */
+  show(anchor: HTMLElement): void {
+    if (!this.isOpen) this.toggle(anchor);
+  }
+
   toggle(anchor: HTMLElement): void {
     this.anchor = anchor;
     if (this.isOpen) return this.hide();
-    void this.load();
+    this.enabled = null;
+    this.sync();
+    if (this.enabled) void this.load();
     const r = anchor.getBoundingClientRect();
     this.el.style.top = `${Math.round(r.bottom + 8)}px`;
     this.el.style.right = `${Math.max(8, Math.round(innerWidth - r.right - 4))}px`;

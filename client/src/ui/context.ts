@@ -79,6 +79,8 @@ export interface UiContext {
    * existe com a cena Mundo montada (app.ts).
    */
   visitOwnBuilding?(): void;
+  /** Abre o painel Projetos da barra de cima (ui/projects.ts). */
+  openProjects(): void;
   /** Abre as configurações na seção "Sobre" (versão em uso e versão nova). */
   openAbout(): void;
   /** Abre/fecha o timelapse do dia (ui/timelapse.ts). */

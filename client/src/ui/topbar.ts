@@ -181,6 +181,11 @@ export class TopBar implements UiComponent {
     this.panelGroup.prepend(btn);
   }
 
+  /** Abre o painel Projetos (o "Abrir um projeto" do escritório vazio). */
+  openProjects(): void {
+    this.projectsPanel.show(this.projectsBtn);
+  }
+
   render(): void {
     const { store } = this.ctx;
     const snap = store.snapshot;
@@ -229,7 +234,9 @@ export class TopBar implements UiComponent {
     this.usage.render();
     this.version.render();
     setHidden(this.spawnBtn, !access().spawn || store.mock || store.replaying);
-    setHidden(this.projectsBtn, !this.ctx.terminals?.interactiveEnabled || !access().local || store.mock || store.replaying);
+    // Sempre no acesso local: com o terminal interativo desligado, o painel explica como ligar.
+    setHidden(this.projectsBtn, !access().local || store.mock || store.replaying);
+    if (this.projectsPanel.isOpen) this.projectsPanel.sync();
 
     this.sidebarBtn.setAttribute('aria-pressed', String(this.ctx.isPanelOpen('sidebar')));
     this.feedBtn.setAttribute('aria-pressed', String(this.ctx.isPanelOpen('feed')));

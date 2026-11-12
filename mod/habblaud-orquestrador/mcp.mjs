@@ -12,8 +12,6 @@ const PORT = Number.parseInt(process.env.HABBLAUD_PORT ?? '', 10) || 4747;
 const BASE = `http://127.0.0.1:${PORT}`;
 const SERVER_INFO = { name: 'habblaud', version: '1.0.0' };
 const PROTOCOL = '2025-06-18';
-/** Antes de apertar Enter: o Claude Code trata texto + Enter chegando juntos como colagem (o Enter vira quebra de linha). */
-const SUBMIT_DELAY_MS = 250;
 
 async function call(method, path, body) {
   let res;
@@ -121,7 +119,8 @@ const TOOLS = [
   },
   {
     name: 'mandar_mensagem',
-    description: 'Manda um texto para um agente: o próximo passo, uma correção ou uma pergunta. Use o agente_id (ou o terminal_id) de listar_agentes.',
+    description:
+      'Manda um texto para um agente: o próximo passo, uma correção ou uma pergunta. Use o agente_id (ou o terminal_id) de listar_agentes. Nas sessões que você abriu, o texto entra no terminal; nas da pessoa, vai pela caixa de mensagens. Com o agente "esperando você", nada é enviado: avise a pessoa.',
     inputSchema: {
       type: 'object',
       properties: { agente_id: { type: 'string' }, terminal_id: { type: 'string' }, texto: { type: 'string' } },
@@ -132,14 +131,15 @@ const TOOLS = [
       const snap = await call('GET', '/api/snapshot');
       const live = (snap.ptys ?? []).filter((p) => p.exitedAt === undefined);
       const pty = live.find((p) => (a.terminal_id && p.id === a.terminal_id) || (a.agente_id && p.agentId === a.agente_id));
-      if (pty) {
-        // Terminal aberto no Habblaud: digita como a pessoa digitaria.
-        await call('POST', `/api/pty/${encodeURIComponent(pty.id)}/input`, { data: a.texto });
-        await new Promise((ok) => setTimeout(ok, SUBMIT_DELAY_MS));
-        await call('POST', `/api/pty/${encodeURIComponent(pty.id)}/input`, { data: '\r' });
+      if (pty?.by === 'orchestrator') {
+        // Sessão que você abriu: o Habblaud digita e aperta Enter, e recusa se o agente está esperando a pessoa.
+        await call('POST', '/api/pty/orchestrator/send', { terminal_id: pty.id, texto: a.texto });
         return { enviado: true, pelo: 'terminal', terminal_id: pty.id };
       }
-      if (!a.agente_id) throw new Error('terminal não encontrado (ele já fechou?); informe o agente_id');
+      // Sessões da pessoa nunca recebem teclas: só a caixa de mensagens, entregue no fim do turno do agente.
+      if (!a.agente_id) {
+        throw new Error(pty ? 'essa sessão não foi aberta por você: use o agente_id (a mensagem vai pela caixa de mensagens)' : 'terminal não encontrado (ele já fechou?); informe o agente_id');
+      }
       const m = await call('POST', '/api/messages', { agentId: a.agente_id, text: a.texto });
       return { enviado: true, pelo: 'caixa de mensagens', situacao: m?.status ?? 'na fila' };
     },

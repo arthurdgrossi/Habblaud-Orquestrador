@@ -93,6 +93,8 @@ export interface PtyManagerOptions {
   createScreen?: ScreenFactory;
   isAlive?: (pid: number) => boolean;
   sleep?: (ms: number) => Promise<void>;
+  /** O agente deste terminal está esperando a pessoa (permissão ou pergunta)? Ausente = nunca (testes). */
+  waiting?: (info: PtyInfo) => boolean;
 }
 
 /** Saída bruta guardada por terminal quando não há o @xterm/headless (ver rawScreen). */
@@ -185,6 +187,23 @@ interface SpawnPlan {
 /** Terminais que o orquestrador pode manter abertos ao mesmo tempo (fora ele mesmo). */
 export const ORCHESTRATOR_MAX = 4;
 export const PROMPT_MAX = 8_000;
+/** Antes do Enter: o Claude Code trata texto + Enter chegando juntos como colagem (o Enter vira quebra de linha). */
+export const SUBMIT_DELAY_MS = 250;
+
+/**
+ * Texto do orquestrador pronto para digitar: sem caracteres de controle (ESC, Ctrl+C, Enter…), que viram teclas no
+ * terminal e poderiam responder um menu ou interromper a sessão. Quebras de linha viram espaço.
+ */
+export function orchestratorText(text: unknown): string {
+  if (typeof text !== 'string') throw new PtyError(400, tr('mensagem inválida'));
+  const clean = text
+    .replace(/\r\n?|\n/g, ' ')
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\u0000-\u001f\u007f-\u009f]/g, '')
+    .trim();
+  if (!clean || clean.length > PROMPT_MAX) throw new PtyError(400, tr('mensagem inválida (texto de até {0} caracteres)', [PROMPT_MAX]));
+  return clean;
+}
 
 export type PtyTool = 'claude' | 'codex';
 /** Nome de modelo aceito em `--model`/`-m` (ex.: opus, sonnet, claude-opus-5-5, gpt-5.5-codex): sem espaço nem shell. */
@@ -386,6 +405,31 @@ export class PtyManager {
   input(id: string, data: unknown): void {
     if (typeof data !== 'string' || data.length > 64 * 1024) throw new PtyError(400, tr('entrada inválida'));
     this.running(id).proc.write(data);
+  }
+
+  /**
+   * Mensagem do orquestrador para uma sessão: digita o texto e aperta Enter. Só nas sessões que ele mesmo abriu
+   * (as da pessoa recebem pela caixa de mensagens) e nunca com o agente esperando a pessoa: um texto + Enter ali
+   * responderia o pedido de permissão ou a pergunta no lugar dela.
+   */
+  async orchestratorSend(ref: { terminalId?: unknown; agentId?: unknown }, text: unknown): Promise<PtyInfo> {
+    const data = orchestratorText(text);
+    const pty = [...this.ptys.values()].find(
+      (t) => t.info.exitedAt === undefined && ((typeof ref.terminalId === 'string' && t.info.id === ref.terminalId) || (typeof ref.agentId === 'string' && t.info.agentId === ref.agentId)),
+    );
+    if (!pty) throw new PtyError(404, tr('terminal não encontrado'));
+    const check = (): void => {
+      if (pty.info.by !== 'orchestrator') throw new PtyError(403, tr('essa sessão não foi aberta pelo orquestrador: use a caixa de mensagens'));
+      if (pty.info.exitedAt !== undefined) throw new PtyError(409, tr('o terminal já foi encerrado'));
+      if (this.opts.waiting?.(pty.info)) throw new PtyError(409, tr('o agente está esperando a pessoa (permissão ou pergunta): avise a pessoa em vez de digitar'));
+    };
+    check();
+    pty.proc.write(data);
+    await this.sleep(SUBMIT_DELAY_MS);
+    // De novo: o agente pode ter parado para pedir permissão enquanto o texto chegava.
+    check();
+    pty.proc.write('\r');
+    return { ...pty.info };
   }
 
   resize(id: string, cols: unknown, rows: unknown): void {

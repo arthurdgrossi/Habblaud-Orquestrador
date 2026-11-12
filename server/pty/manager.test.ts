@@ -433,4 +433,65 @@ describe('PtyManager: orquestrador', () => {
     expect(s.manager.createOrchestrator({ cwd: tmpdir(), mcpConfig: 'x', model: 'opus' }).id).toBe(a.id);
     expect(s.spawned).toHaveLength(1);
   });
+
+  describe('mensagem do orquestrador (orchestratorSend)', () => {
+    function withProcs(over: Partial<Omit<PtyManagerOptions, 'agent'>> = {}) {
+      const procs: FakeProc[] = [];
+      let pid = 7000;
+      const s = setup({
+        spawn: () => {
+          const p = new FakeProc(++pid);
+          procs.push(p);
+          return p;
+        },
+        ...over,
+      });
+      return { ...s, procs };
+    }
+
+    it('digita o texto e aperta Enter só nas sessões abertas pelo orquestrador', async () => {
+      const s = withProcs();
+      const mine = s.manager.create({ cwd: tmpdir(), prompt: 'tarefa', by: 'orchestrator' });
+      const person = s.manager.create({ cwd: tmpdir() });
+      await s.manager.orchestratorSend({ terminalId: mine.id }, 'rode os testes');
+      expect(s.procs[0].written).toEqual(['rode os testes', '\r']);
+      // Pelo agentId também.
+      await s.manager.orchestratorSend({ agentId: mine.agentId }, 'e o lint');
+      expect(s.procs[0].written.slice(2)).toEqual(['e o lint', '\r']);
+      // A sessão da pessoa nunca recebe teclas do orquestrador.
+      await rejects(s.manager.orchestratorSend({ terminalId: person.id }, 'sim'), 403);
+      await rejects(s.manager.orchestratorSend({ agentId: person.agentId }, 'sim'), 403);
+      expect(s.procs[1].written).toEqual([]);
+      await rejects(s.manager.orchestratorSend({ terminalId: 'nada' }, 'oi'), 404);
+    });
+
+    it('recusa com o agente esperando a pessoa, inclusive se o pedido chega enquanto o texto é digitado', async () => {
+      let waiting = true;
+      const s = withProcs({ waiting: () => waiting });
+      const mine = s.manager.create({ cwd: tmpdir(), prompt: 'tarefa', by: 'orchestrator' });
+      await rejects(s.manager.orchestratorSend({ terminalId: mine.id }, '1'), 409);
+      expect(s.procs[0].written).toEqual([]);
+
+      waiting = false;
+      const raced = withProcs({
+        waiting: () => waiting,
+        sleep: async () => {
+          waiting = true; // o agente pediu permissão no meio
+        },
+      });
+      const t = raced.manager.create({ cwd: tmpdir(), prompt: 'tarefa', by: 'orchestrator' });
+      await rejects(raced.manager.orchestratorSend({ terminalId: t.id }, 'sim'), 409);
+      // O texto entrou, mas o Enter não: nada foi respondido no lugar da pessoa.
+      expect(raced.procs[0].written).toEqual(['sim']);
+    });
+
+    it('tira teclas de controle (Esc, Ctrl+C, Enter) e recusa texto vazio', async () => {
+      const s = withProcs();
+      const mine = s.manager.create({ cwd: tmpdir(), prompt: 'tarefa', by: 'orchestrator' });
+      await s.manager.orchestratorSend({ terminalId: mine.id }, 'a\r\nb\x1b[A\x03c');
+      expect(s.procs[0].written).toEqual(['a b[Ac', '\r']);
+      await rejects(s.manager.orchestratorSend({ terminalId: mine.id }, '\r\n\x1b'), 400);
+      await rejects(s.manager.orchestratorSend({ terminalId: mine.id }, 42), 400);
+    });
+  });
 });

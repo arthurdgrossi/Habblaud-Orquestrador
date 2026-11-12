@@ -20,7 +20,7 @@ import { describeStateMigration, legacyEnvWarning, migrateLegacyStateDir } from 
 import { errMsg, log } from './log';
 import { NameStore } from './model/names';
 import { Office } from './model/office';
-import { RoomAliases } from './model/room-aliases';
+import { pathKey, RoomAliases } from './model/room-aliases';
 import { createPtyRoutes } from './http/pty';
 import { claudeBinFrom, isExecutableFile, loadPty, PtyManager, type ScreenFactory, type SpawnPty } from './pty/manager';
 import { loadHeadlessScreen } from './pty/screen';
@@ -323,6 +323,13 @@ const ptys = spawnPty
       },
       onChange: () => office.markDirty(),
       createScreen: ptyScreen,
+      waiting: (info) => {
+        const own = office.get(info.agentId);
+        if (own) return own.status === 'waiting';
+        // Codex: o personagem tem outro id (conta:thread); vale qualquer agente esperando na mesma pasta.
+        const cwd = pathKey(info.cwd);
+        return office.list().some((a) => a.status === 'waiting' && pathKey(office.roomPath(a.roomId) ?? '') === cwd);
+      },
     })
   : undefined;
 late.ptys = ptys;

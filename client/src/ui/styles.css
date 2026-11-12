@@ -11209,6 +11209,29 @@ html.is-replay #world {
   display: none;
 }
 
+.ui-projects__off-title {
+  margin: 0;
+  font-weight: 600;
+}
+
+.ui-projects__cmd {
+  display: block;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--ui-line);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  user-select: all;
+  overflow-wrap: anywhere;
+}
+
+.ui-empty__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
 @media (max-width: 420px) {
   .ui-projects {
     width: calc(100vw - 16px);

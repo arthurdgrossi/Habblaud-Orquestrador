@@ -1,4 +1,5 @@
 // Camadas de estado: splash de carregamento, escritório vazio e aviso de conexão perdida.
+import { access } from '../net/access';
 import type { UiComponent, UiContext } from './context';
 import { h, prefersReducedMotion, setHidden, setText } from './dom';
 import { FALLBACK_MARK } from './icons';
@@ -72,6 +73,7 @@ export class EmptyState implements UiComponent {
   readonly el: HTMLElement;
   private hint: HTMLElement;
   private demoBtn: HTMLButtonElement;
+  private projectsBtn: HTMLButtonElement;
   private busy = false;
 
   constructor(private ctx: UiContext) {
@@ -92,13 +94,15 @@ export class EmptyState implements UiComponent {
     art.append(img);
     this.hint = h('p', { class: 'ui-empty__text' });
     this.demoBtn = h('button', { class: 'ui-btn ui-btn--primary', type: 'button', text: tr('Ver demonstração'), on: { click: () => void this.startDemo() } });
+    // Começar de verdade: o painel Projetos abre uma sessão numa pasta (ou explica como ligar o terminal interativo).
+    this.projectsBtn = h('button', { class: 'ui-btn', type: 'button', text: tr('Abrir um projeto'), on: { click: () => this.ctx.openProjects() } });
     this.el = h(
       'section',
       { class: 'ui-empty', hidden: true, attrs: { 'aria-labelledby': 'ui-empty-title' } },
       art,
       h('h2', { class: 'ui-empty__title', text: tr('O escritório está vazio'), attrs: { id: 'ui-empty-title' } }),
       this.hint,
-      this.demoBtn,
+      h('div', { class: 'ui-empty__actions' }, this.projectsBtn, this.demoBtn),
     );
   }
 
@@ -111,6 +115,7 @@ export class EmptyState implements UiComponent {
     setText(this.hint, emptyOfficeHint(snap.accounts));
     this.demoBtn.disabled = this.busy;
     setHidden(this.demoBtn, store.mock);
+    setHidden(this.projectsBtn, store.mock || !access().local);
   }
 
   private async startDemo(): Promise<void> {
