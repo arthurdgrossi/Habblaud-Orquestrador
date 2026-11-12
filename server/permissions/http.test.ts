@@ -1,11 +1,12 @@
 // Rotas de /api/permissions: a trava (desligado / Host que não é local), o guard (JSON e Origin), os
 // status (400, 404, 405, 409), o fluxo completo (registrar → esperar → decidir), o long-poll sem decisão,
 // a resposta imediata sem páginas abertas, as perguntas do AskUserQuestion e os pedidos fictícios do demo.
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { OfficeSnapshot, PermissionRequestInfo } from '../../shared/types';
+import type { PermissionRegistry } from './registry';
 import { setQuiet } from '../log';
 import { hookJson, MAIN, request, servePermissions, type PermissionServer } from '../test/permission-server';
-import { waitMs } from './http';
+import { createPermissionRoutes, skipMessage, waitMs } from './http';
 
 setQuiet(true);
 
@@ -208,5 +209,28 @@ describe('rotas', () => {
     expect(waitMs(new URL('http://x/?timeout=0.001'))).toBe(50);
     expect(waitMs(new URL('http://x/'))).toBe(25_000);
     expect(waitMs(new URL('http://x/?timeout=abc'))).toBe(25_000);
+  });
+});
+
+describe('pedido que fica só no terminal', () => {
+  it('avisa o motivo (onSkip) com a ferramenta, para o log do servidor', async () => {
+    const onSkip = vi.fn();
+    const registry = { register: () => ({ skip: 'unknown-session' }) } as unknown as PermissionRegistry;
+    const route = createPermissionRoutes(registry, onSkip);
+    const { Readable } = await import('node:stream');
+    const req = Object.assign(Readable.from([Buffer.from(JSON.stringify({ session_id: 's', tool_name: 'Bash' }))]), {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+    });
+    const sent: { status?: number; body?: string } = {};
+    const res = {
+      writeHead: (status: number) => void (sent.status = status),
+      end: (body: string) => void (sent.body = body),
+    };
+    route(req as never, res as never, '/api/permissions');
+    await vi.waitFor(() => expect(sent.status).toBe(200));
+    expect(onSkip).toHaveBeenCalledWith('unknown-session', 'Bash');
+    expect(JSON.parse(sent.body!)).toEqual({ skip: 'unknown-session' });
+    expect(skipMessage('no-viewers', 'Bash')).toMatch(/Bash.*terminal.*localhost/);
   });
 });

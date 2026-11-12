@@ -11147,3 +11147,70 @@ html.is-replay #world {
 .ui-world-chip__visitors[hidden] {
   display: none;
 }
+
+/* ---- Projetos salvos (ui/projects.ts) */
+.ui-projects {
+  width: 380px;
+}
+
+.ui-projects__list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 320px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.ui-projects__item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--ui-line);
+  background: var(--ui-bg-soft);
+}
+
+.ui-projects__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ui-projects__add {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ui-projects__row {
+  display: grid;
+  grid-template-columns: 7.5em minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: center;
+}
+
+.ui-projects__tool,
+.ui-projects__model {
+  min-width: 0;
+}
+
+.ui-projects__orch {
+  width: 100%;
+  justify-content: center;
+}
+
+.ui-projects__status:empty {
+  display: none;
+}
+
+@media (max-width: 420px) {
+  .ui-projects {
+    width: calc(100vw - 16px);
+  }
+}

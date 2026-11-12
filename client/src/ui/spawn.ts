@@ -380,7 +380,7 @@ export class SpawnPanel {
         const running = info.how === 'cli';
         this.say(
           running
-            ? tr('Rodando: a sessão já começou no computador e aparece no escritório em instantes.')
+            ? tr('Rodando em segundo plano (sem janela): a sessão já começou e aparece no escritório em instantes. Para abrir numa janela de terminal, use Projetos.')
             : info.note
               ? tr('Abri no app do Claude: aperte Enter lá para começar. Não rodou sozinho: {0}.', [info.note])
               : tr('Abri no app do Claude: aperte Enter lá para começar.'),

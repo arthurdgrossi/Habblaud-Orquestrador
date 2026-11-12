@@ -714,6 +714,18 @@ export interface PtyStatus {
 }
 
 /** Terminal interativo aberto pelo Habblaud (node-pty no servidor, xterm.js no navegador). */
+/** Projeto salvo no botão "Projetos": abre uma sessão nova com um clique (server/projects/store.ts). */
+export interface SavedProject {
+  id: string;
+  name: string;
+  /** Pasta do projeto (caminho absoluto). */
+  path: string;
+  /** Ferramenta (ausente = Claude Code). */
+  tool?: 'codex';
+  /** Modelo padrão (`--model` / `-m`); ausente = o padrão da ferramenta. */
+  model?: string;
+}
+
 export interface PtyInfo {
   id: string;
   /** PID do Claude Code: o agente correspondente é `${account}:${pid}` (= agentId). */
@@ -725,6 +737,14 @@ export interface PtyInfo {
   resumed?: string;
   /** Agente que este terminal assumiu (o id antigo, do processo encerrado). */
   fromAgent?: string;
+  /** Ferramenta aberta no terminal (ausente = Claude Code). */
+  tool?: 'codex';
+  /** Modelo pedido ao abrir (`--model` / `-m`). */
+  model?: string;
+  /** Aberto pelo orquestrador (conta no limite dele). */
+  by?: 'orchestrator';
+  /** Este terminal é o próprio orquestrador. */
+  role?: 'orchestrator';
   startedAt: number;
   exitedAt?: number;
   exitCode?: number;

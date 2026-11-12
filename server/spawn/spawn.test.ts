@@ -10,6 +10,7 @@ import {
   launch,
   parseSpawn,
   QUEUED_TIMEOUT_MS,
+  REPEAT_MS,
   SENT_TIMEOUT_MS,
   sessionName,
   SpawnService,
@@ -87,8 +88,34 @@ describe('SpawnService', () => {
 
   it('no máximo 5 abrindo ao mesmo tempo', () => {
     const s = new SpawnService({ opener: () => new Promise(() => {}), folderProblem: () => undefined });
-    for (let i = 0; i < 5; i++) expect(s.submit({ folder: '/p', prompt: '' })).toHaveProperty('spawn');
-    expect(s.submit({ folder: '/p', prompt: '' })).toMatchObject({ error: 'too-many' });
+    for (let i = 0; i < 5; i++) expect(s.submit({ folder: '/p', prompt: `t${i}` })).toHaveProperty('spawn');
+    expect(s.submit({ folder: '/p', prompt: 'outro' })).toMatchObject({ error: 'too-many' });
+  });
+
+  it('clique repetido: o mesmo pedido abrindo ou recém-aberto devolve o anterior, sem abrir outro agente', async () => {
+    let now = 1_000_000;
+    let n = 0;
+    let runs = 0;
+    const results: string[] = [];
+    const s = new SpawnService({
+      opener: async () => ({ ok: true }),
+      cli: async () => (runs++, { ok: true, id: 'x' }),
+      folderProblem: () => undefined,
+      now: () => now,
+      newId: () => `id${++n}`,
+      onResult: (i) => results.push(`${i.id}:${i.status}:${i.how}`),
+    });
+    expect(s.submit({ folder: '/p', prompt: '' })).toMatchObject({ spawn: { id: 'id1' } });
+    expect(s.submit({ folder: '/p', prompt: '' })).toMatchObject({ spawn: { id: 'id1' } });
+    await new Promise((ok) => setTimeout(ok, 0));
+    expect(s.submit({ folder: '/p', prompt: '' })).toMatchObject({ spawn: { id: 'id1', status: 'opened' } });
+    expect(s.submit({ folder: '/p', prompt: 'outra coisa' })).toMatchObject({ spawn: { id: 'id2' } });
+    await new Promise((ok) => setTimeout(ok, 0));
+    now += REPEAT_MS + 1;
+    expect(s.submit({ folder: '/p', prompt: '' })).toMatchObject({ spawn: { id: 'id3' } });
+    await new Promise((ok) => setTimeout(ok, 0));
+    expect(runs).toBe(3);
+    expect(results).toEqual(['id1:opened:cli', 'id2:opened:cli', 'id3:opened:cli']);
   });
 });
 
@@ -179,6 +206,17 @@ describe('novo agente em segundo plano (claude --bg)', () => {
     expect(realpathSync(args[0])).toBe(realpathSync(dir));
     expect(args.slice(1)).toEqual(['--bg', '-n', 'Habblaud: faça $(rm -rf x) && y', '--', 'faça $(rm -rf x) && y']);
     expect(await run({ folder: tmpdir(), prompt: 'oi' })).toEqual({ ok: false, error: 'Workspace not trusted. Run claude once' });
+  });
+
+  it.skipIf(process.platform === 'win32')('createCliRunner responde quando o id aparece, sem esperar quem segura a saída', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'hb-spawn-'));
+    const bin = join(dir, 'claude');
+    // O serviço de segundo plano que sobe na primeira vez herda a saída e a segura aberta.
+    writeFileSync(bin, `#!/bin/sh\necho 'backgrounded · abc123 · nome'\nsleep 5\n`);
+    chmodSync(bin, 0o755);
+    const t0 = Date.now();
+    expect(await createCliRunner(bin, 20_000)({ folder: dir, prompt: '' })).toEqual({ ok: true, id: 'abc123' });
+    expect(Date.now() - t0).toBeLessThan(3_000);
   });
 
   it('launch: roda em segundo plano; se não der, abre o app e diz por quê', async () => {

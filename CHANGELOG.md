@@ -10,6 +10,35 @@ do meio (0.**3**.0).
 
 ## [Não lançado]
 
+### Novo
+
+- **Projetos: abra uma sessão num clique.** O botão de pasta na barra de cima guarda seus projetos (nome e pasta) e
+  abre na hora uma sessão nova do **Claude Code ou do Codex**, no **modelo escolhido** (`opus`, `sonnet`, `haiku` ou
+  qualquer nome; vazio usa o padrão), num terminal interativo já na pasta certa. A lista fica em
+  `~/.habblaud/projects.json`. Precisa do terminal interativo ligado (`HABBLAUD_PTY=1`).
+- **Orquestrador.** Em **Projetos › Abrir orquestrador**, um Claude Code (Opus) abre no terminal interativo, aparece no
+  escritório como os outros agentes e recebe as tarefas do dia. Pelo MCP do Habblaud
+  (`mod/habblaud-orquestrador/mcp.mjs`) ele lista projetos e agentes, abre sessões com a tarefa, a ferramenta e o
+  modelo que escolher, manda mensagens e encerra o que abriu. No máximo **4 sessões abertas por ele** ao mesmo tempo
+  (o Habblaud recusa a quinta), e **as permissões continuam todas com você**.
+
+### Corrigido
+
+- **Codex no Windows: os pedidos de aprovação voltam a aparecer no escritório.** O `npm run codex:install` gravava o
+  comando do hook com aspas simples (`'C:\…\node.exe' 'C:\…\hook.mjs'`), que só funciona no bash: no PowerShell e
+  no cmd o hook nem rodava, e o pedido ia direto para o terminal. Agora o comando usa barras normais entre aspas
+  duplas, que funcionam nos três. Rode `npm run codex:install` de novo e aprove os hooks em `/hooks` no Codex.
+- **Projetos › Abrir abre uma janela de terminal de verdade.** Por padrão, a sessão começa numa janela do Windows
+  Terminal (no macOS, do Terminal) já na pasta do projeto, com a ferramenta e o modelo escolhidos; em **Abrir em** dá
+  para trocar pelo terminal dentro do Habblaud. Clique repetido não abre uma segunda janela.
+- **Novo agente não abre mais agentes repetidos.** O mesmo pedido enviado de novo enquanto o anterior ainda abre (ou
+  logo depois) devolve o anterior. A resposta chega assim que o `claude --bg` começa a sessão, em vez de esperar o
+  prazo quando o serviço de segundo plano sobe pela primeira vez (o que fazia o pedido parecer falho e ser repetido).
+  A tela agora diz que o Novo agente roda em segundo plano, sem janela, e o log do servidor registra cada abertura.
+- **Pedido que fica só no terminal agora diz por quê.** O log do servidor mostra o motivo (nenhuma página aberta
+  por `http://localhost`, sessão que ainda não entrou no escritório, pedidos demais), em vez de devolver o pedido ao
+  terminal em silêncio.
+
 ## [1.0.3] - 2026-10-16
 
 ### Corrigido

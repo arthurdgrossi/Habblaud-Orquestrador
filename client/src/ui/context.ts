@@ -3,6 +3,7 @@ import type { AccountInfo, AgentInfo } from '../../../shared/types';
 import type { OfficeStore } from '../net/store';
 import type { Selection, WorldApi } from '../world/api';
 import type { UiPrefs } from './prefs';
+import type { NewSessionOptions } from './ptyapi';
 
 export interface UiComponent {
   /** Chamado no máximo uma vez por quadro, quando algo mudou (snapshot, seleção, relógio...). */
@@ -26,8 +27,10 @@ export interface TerminalRouter {
   readonly available: boolean;
   /** Terminal interativo ligado (abrir sessões novas, assumir, encerrar). */
   readonly interactiveEnabled: boolean;
-  /** Sessão nova do Claude Code na pasta, aberta no terminal interativo. */
-  newSession(cwd: string, account?: string): Promise<void>;
+  /** Sessão nova do Claude Code (ou do Codex, com o modelo pedido) na pasta, aberta no terminal interativo. */
+  newSession(cwd: string, account?: string, opts?: NewSessionOptions): Promise<void>;
+  /** Abre o orquestrador (Claude Code com o MCP do Habblaud) no terminal interativo. */
+  orchestrator(): Promise<void>;
 }
 
 export type HelpSection = 'usage' | 'codex';

@@ -22,6 +22,10 @@ import { AUDIO_BODY_MAX, type DictationService } from '../dictation/dictation';
 import type { DeliveryIndex } from '../deliveries/deliveries';
 import type { FileFetcher } from '../deliveries/fetcher';
 import { HOST_WAIT_MS } from '../host-wait';
+import { InvalidProjects, parseProjects, type ProjectStore } from '../projects/store';
+import type { ProjectOpenResult } from '../projects/window';
+import { ptyRequestProblem } from './pty';
+import type { SavedProject } from '../../shared/types';
 
 export interface ApiDeps {
   office: Office;
@@ -94,6 +98,10 @@ export interface ApiDeps {
    * local com Host local: pela porta do celular, nem com login (403 `local_only`).
    */
   world?: (req: IncomingMessage, res: ServerResponse, url: URL) => void;
+  /** Projetos salvos (GET|PUT /api/projects; projects/store.ts): só junto com o terminal interativo. */
+  projects?: ProjectStore;
+  /** POST /api/projects/open {id, tool?, model?}: abre o projeto numa janela de terminal (projects/window.ts). */
+  openProjectWindow?: (p: SavedProject, body: { tool?: unknown; model?: unknown }) => Promise<ProjectOpenResult>;
 }
 
 /** GET /api/agents/:id/terminal (ids nunca contêm '/'). */
@@ -449,6 +457,51 @@ export function createApiHandler(deps: ApiDeps): (req: IncomingMessage, res: Ser
       } else {
         deps.permissions(req, res, path);
       }
+      return true;
+    }
+    if (path === '/api/projects/open') {
+      // Roda o Claude Code/Codex neste computador: a mesma trava do terminal interativo.
+      const store = deps.projects;
+      const opener = deps.openProjectWindow;
+      const problem = isRemote(req) ? tr('o terminal interativo só pode ser usado no próprio computador') : ptyRequestProblem(req);
+      if (problem) sendJson(res, 403, { error: problem });
+      else if (!store || !opener) sendJson(res, 403, { error: tr('terminal interativo desligado (veja o log do servidor)') });
+      else if (method !== 'POST') methodNotAllowed(res, 'POST');
+      else
+        readJson(req)
+          .then(async (raw) => {
+            const body = (raw && typeof raw === 'object' ? raw : {}) as { id?: unknown; tool?: unknown; model?: unknown };
+            const p = store.list().find((x) => x.id === body.id);
+            if (!p) throw new HttpError(404, tr('projeto não encontrado'));
+            const r = await opener(p, body);
+            if (!r.ok) throw new HttpError(r.status, r.error);
+            sendJson(res, 201, { opened: true, tool: r.tool, ...(r.model ? { model: r.model } : {}) });
+          })
+          .catch((err) => fail(res, err));
+      return true;
+    }
+    if (path === '/api/projects') {
+      // A lista só serve para abrir terminais: mesma trava do terminal interativo (nunca pela porta remota).
+      const store = deps.projects;
+      if (isRemote(req)) sendJson(res, 403, { error: tr('o terminal interativo só pode ser usado no próprio computador') });
+      else if (!store || !deps.pty) sendJson(res, 403, { error: tr('terminal interativo desligado (veja o log do servidor)') });
+      else if (!trusted(req)) sendJson(res, 403, { error: tr('os projetos só são editados pelo próprio computador (http://localhost ou http://127.0.0.1)') });
+      else if (isRead) sendJson(res, 200, { projects: store.list() });
+      else if (method !== 'PUT') methodNotAllowed(res, 'GET, PUT');
+      else
+        readJson(req)
+          .then((body) => {
+            let list;
+            try {
+              list = parseProjects((body as { projects?: unknown } | null)?.projects);
+            } catch (err) {
+              if (err instanceof InvalidProjects) throw new HttpError(400, err.message);
+              throw err;
+            }
+            store.replace(list);
+            sendJson(res, 200, { projects: store.list() });
+          })
+          .catch((err) => fail(res, err));
       return true;
     }
     if (path === '/api/pty' || path.startsWith('/api/pty/') || AGENT_ACTION_ROUTE.test(path)) {

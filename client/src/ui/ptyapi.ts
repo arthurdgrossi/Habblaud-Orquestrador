@@ -27,9 +27,20 @@ export async function postPty<T = unknown>(url: string, body: unknown): Promise<
 
 const SIZE = { cols: 120, rows: 32 };
 
-/** Sessão nova do Claude Code na pasta (e conta) indicada. */
-export function createPty(cwd: string, account?: string): Promise<PtyInfo | undefined> {
-  return postPty<PtyInfo>('/api/pty', { cwd, account, ...SIZE });
+/** Ferramenta e modelo de uma sessão nova (ausentes = Claude Code no modelo padrão). */
+export interface NewSessionOptions {
+  tool?: 'claude' | 'codex';
+  model?: string;
+}
+
+/** Sessão nova do Claude Code (ou do Codex) na pasta (e conta) indicada. */
+export function createPty(cwd: string, account?: string, opts: NewSessionOptions = {}): Promise<PtyInfo | undefined> {
+  return postPty<PtyInfo>('/api/pty', { cwd, account, ...(opts.tool ? { tool: opts.tool } : {}), ...(opts.model ? { model: opts.model } : {}), ...SIZE });
+}
+
+/** Abre o orquestrador (ou devolve o que já está aberto). */
+export function openOrchestrator(): Promise<PtyInfo | undefined> {
+  return postPty<PtyInfo>('/api/pty/orchestrator', SIZE);
 }
 
 /** Encerra a sessão noutro terminal e continua a mesma conversa aqui. */

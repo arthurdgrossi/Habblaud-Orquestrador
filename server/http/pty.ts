@@ -12,6 +12,7 @@ import { PtyError, type PtyManager } from '../pty/manager';
 import { HttpError, readJson, sendJson } from './app';
 import { isLoopbackHost } from './guard';
 import { tr } from '../../shared/i18n';
+import type { PtyInfo } from '../../shared/types';
 
 /** /api/agents/:id/(stop|takeover) (ids nunca contêm '/'). */
 const AGENT_ACTION_ROUTE = /^\/api\/agents\/([^/]+)\/(stop|takeover)$/;
@@ -43,7 +44,10 @@ export function ptyRequestProblem(req: IncomingMessage): string | null {
   return null;
 }
 
-export function createPtyRoutes(ptys: PtyManager): (req: IncomingMessage, res: ServerResponse, path: string) => void {
+/** Abre (ou devolve o já aberto) o orquestrador; ausente = recurso desligado. */
+export type OrchestratorLauncher = (opts: { model?: unknown; cols?: unknown; rows?: unknown }) => PtyInfo;
+
+export function createPtyRoutes(ptys: PtyManager, orchestrator?: OrchestratorLauncher): (req: IncomingMessage, res: ServerResponse, path: string) => void {
   const fail = (res: ServerResponse, err: unknown) => {
     if (res.headersSent) return void res.destroy();
     if (err instanceof HttpError || err instanceof PtyError) sendJson(res, err.status, { error: err.message });
@@ -85,7 +89,14 @@ export function createPtyRoutes(ptys: PtyManager): (req: IncomingMessage, res: S
       if (method === 'GET') return sendJson(res, 200, { status: ptys.status(), ptys: ptys.list() });
       if (method !== 'POST') return notAllowed(res, 'GET, POST');
       const body = (await readJson(req)) as Record<string, unknown>;
-      return sendJson(res, 201, ptys.create({ cwd: body?.cwd, account: body?.account, cols: body?.cols, rows: body?.rows }));
+      return sendJson(res, 201, ptys.create({ cwd: body?.cwd, account: body?.account, cols: body?.cols, rows: body?.rows, tool: body?.tool, model: body?.model, prompt: body?.prompt, by: body?.by }));
+    }
+    if (rawId === 'orchestrator' && !act) {
+      // POST /api/pty/orchestrator {model?}: abre o orquestrador (um só; o aberto volta igual).
+      if (method !== 'POST') return notAllowed(res, 'POST');
+      if (!orchestrator) throw new HttpError(503, tr('orquestrador indisponível'));
+      const body = (await readJson(req)) as Record<string, unknown>;
+      return sendJson(res, 201, orchestrator({ model: body?.model, cols: body?.cols, rows: body?.rows }));
     }
     const id = decode(rawId);
     if (act === 'stream') {

@@ -26,7 +26,11 @@ import { claudeBinFrom, isExecutableFile, loadPty, PtyManager, type ScreenFactor
 import { loadHeadlessScreen } from './pty/screen';
 import { openMainAgent, SessionHistory } from './sources/history';
 import { HistorySet, SourceSet } from './sources/source';
-import { createPermissionRoutes } from './permissions/http';
+import { createPermissionRoutes, skipMessage } from './permissions/http';
+import { statSync } from 'node:fs';
+import { ProjectStore } from './projects/store';
+import { createProjectWindowOpener, createWindowLauncher } from './projects/window';
+import { prepareOrchestrator } from './orchestrator/setup';
 import { PermissionRegistry } from './permissions/registry';
 import { codexAccountOf } from './codex/http';
 import { createCodexQueueRunner, findCodexBin } from './messages/codex';
@@ -258,7 +262,14 @@ const spawnOn = config.messages && ptyOptIn;
 const attachments = spawnOn ? new AttachmentStore() : undefined;
 const spawnBin = config.inDocker ? undefined : runnableClaudeBin(process.env);
 const spawn = spawnOn
-  ? new SpawnService(config.inDocker ? { attachments } : { opener: createOpener(), cli: spawnBin ? createCliRunner(spawnBin) : undefined, attachments })
+  ? new SpawnService({
+      ...(config.inDocker ? { attachments } : { opener: createOpener(), cli: spawnBin ? createCliRunner(spawnBin) : undefined, attachments }),
+      onResult: (i) => {
+        if (i.status === 'failed') log.warn(tr('Novo agente em {0} não abriu: {1}', [i.folder, i.error ?? '?']));
+        else if (i.how === 'cli') log.info(tr('Novo agente em {0}: rodando em segundo plano (sem janela; aparece no escritório).', [i.folder]));
+        else log.info(tr('Novo agente em {0}: aberto no app do Claude{1}.', [i.folder, i.note ? ` (${i.note})` : '']));
+      },
+    })
   : undefined;
 // Ditado: no Docker quem transcreve é o auxiliar do host; no Node, o servidor, se achar o Whisper local.
 const whisper = config.messages && !config.inDocker ? findWhisper() : undefined;
@@ -304,6 +315,7 @@ const ptys = spawnPty
   ? new PtyManager({
       spawn: spawnPty,
       claudeBin: claudeBin ?? 'claude',
+      codexBin: config.inDocker ? undefined : findCodexBin(process.env),
       accounts: () => accounts.entries().map((a) => ({ id: a.id, dir: a.dir, isDefault: isDefaultDir(a.dir, config.home) })),
       agent: (id) => {
         const a = office.get(id);
@@ -315,6 +327,22 @@ const ptys = spawnPty
   : undefined;
 late.ptys = ptys;
 late.ptyOff = ptyOff;
+// Projetos salvos e o "Abrir numa janela" (Windows Terminal / Terminal.app): a mesma liberação do terminal interativo.
+const projects = ptys ? new ProjectStore(join(config.dataDir, 'projects.json')) : undefined;
+const projectWindow = ptys
+  ? createProjectWindowOpener({
+      launcher: createWindowLauncher(),
+      claudeBin: claudeBin ?? undefined,
+      codexBin: findCodexBin(process.env),
+      isDir: (p) => {
+        try {
+          return statSync(p).isDirectory();
+        } catch {
+          return false;
+        }
+      },
+    })
+  : undefined;
 
 if (config.demo) office.setDemo(true);
 // As fontes síncronas (a do Claude Code) terminam o boot aqui, antes de o hub começar a transmitir.
@@ -356,9 +384,23 @@ const api = createApiHandler({
   terminals,
   sessions: history,
   timeline: createTimelineHandler({ dir: timelineDir, recording: !!timeline }),
-  permissions: permissions ? createPermissionRoutes(permissions) : undefined,
+  permissions: permissions ? createPermissionRoutes(permissions, (reason, tool) => log.info(skipMessage(reason, tool))) : undefined,
   messages: messages ? createMessageRoutes(messages) : undefined,
-  pty: ptys ? createPtyRoutes(ptys) : undefined,
+  pty: ptys
+    ? createPtyRoutes(ptys, (o) => {
+        const files = prepareOrchestrator({ dataDir: config.dataDir, rootDir: config.rootDir, port: config.port });
+        return ptys.createOrchestrator({ cwd: files.dir, mcpConfig: files.mcpConfig, model: typeof o.model === 'string' && o.model ? o.model : 'opus', cols: o.cols, rows: o.rows });
+      })
+    : undefined,
+  projects,
+  openProjectWindow: projectWindow
+    ? async (p, body) => {
+        const r = await projectWindow(p, body);
+        if (r.ok) log.info(tr('Projeto {0} aberto numa janela do terminal ({1}{2}).', [p.name, r.tool === 'codex' ? 'Codex' : 'Claude Code', r.model ? `, ${r.model}` : '']));
+        else log.warn(tr('Projeto {0} não abriu na janela do terminal: {1}', [p.name, r.error]));
+        return r;
+      }
+    : undefined,
   spawn,
   attachments,
   dictation,

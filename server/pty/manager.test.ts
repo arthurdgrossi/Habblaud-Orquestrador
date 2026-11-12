@@ -11,6 +11,8 @@ import {
   fixSpawnHelper,
   isExecutableFile,
   MAX_PTYS,
+  newSessionArgs,
+  ORCHESTRATOR_MAX,
   PtyError,
   PtyManager,
   spawnProblem,
@@ -363,4 +365,72 @@ describe('carregar o node-pty e achar o claude', () => {
       expect(claudeBinFrom({ ...env, HABBLAUD_CLAUDE_BIN: 'outro' })).toBeUndefined();
     }),
   );
+});
+
+describe('PtyManager: sessão nova com ferramenta e modelo', () => {
+  it('Claude Code com --model; Codex com -m, no executável do Codex e fora da conta do Claude', () => {
+    const files: string[] = [];
+    const s = setup({
+      codexBin: process.execPath,
+      spawn: (file, args, o) => {
+        files.push(file);
+        s.spawned.push({ args, cwd: o.cwd });
+        return new FakeProc(7000 + files.length);
+      },
+    });
+    const claude = s.manager.create({ cwd: tmpdir(), model: 'opus' });
+    expect(s.spawned[0].args).toEqual(['--model', 'opus']);
+    expect(claude).toMatchObject({ account: 'acc', model: 'opus' });
+    expect(claude.tool).toBeUndefined();
+    const codex = s.manager.create({ cwd: tmpdir(), tool: 'codex', model: 'gpt-5.5-codex' });
+    expect(s.spawned[1].args).toEqual(['-m', 'gpt-5.5-codex']);
+    expect(codex).toMatchObject({ tool: 'codex', account: 'codex', model: 'gpt-5.5-codex' });
+    // Sem modelo: o padrão da ferramenta.
+    s.manager.create({ cwd: tmpdir(), tool: 'codex' });
+    expect(s.spawned[2].args).toEqual([]);
+  });
+
+  it('recusa ferramenta desconhecida, modelo com cara de comando e Codex ausente', () => {
+    const s = setup();
+    expect(() => s.manager.create({ cwd: tmpdir(), tool: 'bash' })).toThrow(PtyError);
+    for (const model of ['opus; rm -rf /', '--dangerously-skip-permissions', 'a b', 'x'.repeat(81), 3]) {
+      expect(() => s.manager.create({ cwd: tmpdir(), model }), String(model)).toThrow(PtyError);
+    }
+    let err: unknown;
+    try {
+      s.manager.create({ cwd: tmpdir(), tool: 'codex' });
+    } catch (e) {
+      err = e;
+    }
+    expect((err as PtyError).status).toBe(503);
+    expect(s.spawned).toHaveLength(0);
+    expect(newSessionArgs('claude')).toEqual([]);
+  });
+});
+
+describe('PtyManager: orquestrador', () => {
+  it('tarefa inicial depois de --; o orquestrador abre no máximo ORCHESTRATOR_MAX terminais', () => {
+    const s = setup();
+    expect(newSessionArgs('claude', 'sonnet', '-x faça')).toEqual(['--model', 'sonnet', '--', '-x faça']);
+    const first = s.manager.create({ cwd: tmpdir(), model: 'sonnet', prompt: 'corrija o bug', by: 'orchestrator' });
+    expect(s.spawned[0].args).toEqual(['--model', 'sonnet', '--', 'corrija o bug']);
+    expect(first.by).toBe('orchestrator');
+    for (let i = 1; i < ORCHESTRATOR_MAX; i++) s.manager.create({ cwd: tmpdir(), prompt: `t${i}`, by: 'orchestrator' });
+    expect(() => s.manager.create({ cwd: tmpdir(), prompt: 'mais uma', by: 'orchestrator' })).toThrow(/máximo/);
+    // A pessoa continua abrindo as dela.
+    expect(s.manager.create({ cwd: tmpdir() }).by).toBeUndefined();
+    // Fechou uma do orquestrador: abre a próxima.
+    s.manager.close(first.id);
+    expect(s.manager.create({ cwd: tmpdir(), prompt: 'próxima', by: 'orchestrator' }).by).toBe('orchestrator');
+    expect(() => s.manager.create({ cwd: tmpdir(), prompt: 'x'.repeat(8_001) })).toThrow(PtyError);
+  });
+
+  it('um orquestrador só: o segundo pedido devolve o aberto; vem com --mcp-config e o modelo', () => {
+    const s = setup();
+    const a = s.manager.createOrchestrator({ cwd: tmpdir(), mcpConfig: join(tmpdir(), 'mcp.json'), model: 'opus' });
+    expect(a.role).toBe('orchestrator');
+    expect(s.spawned[0].args).toEqual(['--mcp-config', join(tmpdir(), 'mcp.json'), '--model', 'opus']);
+    expect(s.manager.createOrchestrator({ cwd: tmpdir(), mcpConfig: 'x', model: 'opus' }).id).toBe(a.id);
+    expect(s.spawned).toHaveLength(1);
+  });
 });

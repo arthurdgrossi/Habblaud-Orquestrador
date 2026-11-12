@@ -78,8 +78,20 @@ function rec(v: unknown): Rec | undefined {
  * `node "<hook>"` (ou `"<node>" "<hook>"` com um Node escolhido, ver chooseNode), sem opções: o comando entra no hash
  * da confiança do Codex.
  */
-export function hookCommand(scriptPath: string, nodeBin?: string): string {
+export function hookCommand(scriptPath: string, nodeBin?: string, platform: NodeJS.Platform = process.platform): string {
+  if (platform === 'win32') return windowsHookCommand(scriptPath, nodeBin);
   return `${nodeBin ? quotePath(nodeBin) : 'node'} ${quotePath(scriptPath)}`;
+}
+
+/**
+ * No Windows o Codex pode rodar o hook pelo PowerShell, pelo cmd ou pelo Git Bash. Aspas simples (`'C:\…'`) só valem no
+ * bash, e `"<node com espaço>" "<hook>"` é erro de sintaxe no PowerShell. Barras normais entre aspas duplas valem nos três
+ * (o Node aceita `C:/…`); o Node escolhido só entra se o caminho não tiver espaço nem aspas, senão fica `node` do PATH.
+ */
+function windowsHookCommand(scriptPath: string, nodeBin?: string): string {
+  const slash = (p: string) => p.replace(/\\/g, '/');
+  const node = nodeBin && /^[^\s"'`$%&|<>^;]+$/.test(nodeBin) ? slash(nodeBin) : 'node';
+  return `${node} "${slash(scriptPath)}"`;
 }
 
 /** Major de uma versão como `node --version` imprime ("v24.17.0" → 24). */

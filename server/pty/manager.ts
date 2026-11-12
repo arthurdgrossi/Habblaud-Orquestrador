@@ -71,6 +71,8 @@ export interface PtyManagerOptions {
   /** Por que o recurso está desligado (quando `spawn` é null). */
   disabledReason?: string;
   claudeBin: string;
+  /** Executável do Codex (HABBLAUD_CODEX_BIN ou `codex` do PATH); ausente = só o Claude Code abre aqui. */
+  codexBin?: string;
   accounts: () => PtyAccount[];
   agent: (id: string) => PtyAgentRef | undefined;
   onChange: () => void;
@@ -110,7 +112,7 @@ const MAIN_ID = /^(.+):(\d+)$/;
  * Variáveis que o Claude Code põe no ambiente das próprias ferramentas. Se o Habblaud foi iniciado de dentro
  * de uma sessão, o Claude aberto aqui se acharia uma sessão-filha (e desligaria o transcript).
  */
-const INHERITED_SESSION_VARS = [
+export const INHERITED_SESSION_VARS = [
   'CLAUDECODE',
   'AI_AGENT',
   'CLAUDE_PID',
@@ -169,6 +171,35 @@ interface SpawnPlan {
   account: PtyAccount;
   cols: number;
   rows: number;
+  tool: PtyTool;
+  model?: string;
+  /** Tarefa inicial (argumento posicional do `claude`/`codex`). */
+  prompt?: string;
+  /** Quem pediu: o orquestrador (limitado a ORCHESTRATOR_MAX terminais abertos) ou ele mesmo. */
+  by?: 'orchestrator';
+  role?: 'orchestrator';
+  /** Argumentos extras (só os que o próprio servidor monta, como os do orquestrador). */
+  extraArgs?: string[];
+}
+
+/** Terminais que o orquestrador pode manter abertos ao mesmo tempo (fora ele mesmo). */
+export const ORCHESTRATOR_MAX = 4;
+export const PROMPT_MAX = 8_000;
+
+export type PtyTool = 'claude' | 'codex';
+/** Nome de modelo aceito em `--model`/`-m` (ex.: opus, sonnet, claude-opus-5-5, gpt-5.5-codex): sem espaço nem shell. */
+const MODEL_NAME = /^[A-Za-z0-9][A-Za-z0-9._:\[\]-]{0,79}$/;
+
+export function isModelName(model: string): boolean {
+  return MODEL_NAME.test(model);
+}
+
+/** Argumentos de uma sessão nova: o modelo vai em `--model` (Claude Code) ou `-m` (Codex). */
+export function newSessionArgs(tool: PtyTool, model?: string, prompt?: string): string[] {
+  const args = !model ? [] : tool === 'codex' ? ['-m', model] : ['--model', model];
+  // `--` antes da tarefa: um texto que começa com "-" não vira opção.
+  if (prompt) args.push('--', prompt);
+  return args;
 }
 
 export class PtyError extends Error {
@@ -222,8 +253,30 @@ export class PtyManager {
   }
 
   /** Abre uma sessão nova do Claude Code na pasta (`cwd` absoluto), na conta pedida (ou na padrão). */
-  create(p: { cwd: unknown; account?: unknown; cols?: unknown; rows?: unknown }): PtyInfo {
-    return this.spawn(this.plan(p, this.takeovers.size));
+  create(p: { cwd: unknown; account?: unknown; cols?: unknown; rows?: unknown; tool?: unknown; model?: unknown; prompt?: unknown; by?: unknown }): PtyInfo {
+    const plan = this.plan(p, this.takeovers.size);
+    if (p.prompt !== undefined && p.prompt !== '') {
+      if (typeof p.prompt !== 'string' || p.prompt.length > PROMPT_MAX || p.prompt.includes('\0')) throw new PtyError(400, tr('tarefa inválida (texto de até {0} caracteres)', [PROMPT_MAX]));
+      plan.prompt = p.prompt;
+    }
+    if (p.by === 'orchestrator') {
+      const mine = [...this.ptys.values()].filter((t) => t.info.exitedAt === undefined && t.info.by === 'orchestrator').length;
+      if (mine >= ORCHESTRATOR_MAX) throw new PtyError(429, tr('o orquestrador já tem {0} terminais abertos (o máximo): encerre um antes de abrir outro', [ORCHESTRATOR_MAX]));
+      plan.by = 'orchestrator';
+    }
+    return this.spawn(plan);
+  }
+
+  /**
+   * Abre o orquestrador: Claude Code na pasta dele, com o MCP do Habblaud (`--mcp-config`). Só um por vez: se já houver
+   * um aberto, devolve esse.
+   */
+  createOrchestrator(p: { cwd: string; mcpConfig: string; model?: string; cols?: unknown; rows?: unknown }): PtyInfo {
+    for (const t of this.ptys.values()) if (t.info.role === 'orchestrator' && t.info.exitedAt === undefined) return { ...t.info };
+    const plan = this.plan({ cwd: p.cwd, cols: p.cols, rows: p.rows, model: p.model }, this.takeovers.size);
+    plan.role = 'orchestrator';
+    plan.extraArgs = ['--mcp-config', p.mcpConfig];
+    return this.spawn(plan);
   }
 
   /**
@@ -370,11 +423,19 @@ export class PtyManager {
   }
 
   /** Valida o pedido de uma sessão nova (`reserved`: vagas já prometidas a tomadas em andamento). */
-  private plan(p: { cwd: unknown; account?: unknown; cols?: unknown; rows?: unknown }, reserved = 0): SpawnPlan {
+  private plan(p: { cwd: unknown; account?: unknown; cols?: unknown; rows?: unknown; tool?: unknown; model?: unknown }, reserved = 0): SpawnPlan {
     if (!this.opts.spawn) throw new PtyError(503, tr('terminal desligado: {0}', [this.opts.disabledReason ?? tr('indisponível')]));
-    // Antes de tudo (o "assumir" encerra a sessão de lá depois daqui): um claude que não roda abriria um terminal que
-    // sai na hora.
-    if (!isExecutableFile(this.opts.claudeBin)) throw new PtyError(503, tr('o executável do Claude Code não roda: {0} (confira o HABBLAUD_CLAUDE_BIN)', [this.opts.claudeBin]));
+    if (p.tool !== undefined && p.tool !== 'claude' && p.tool !== 'codex') throw new PtyError(400, tr('ferramenta desconhecida: use claude ou codex'));
+    const tool: PtyTool = p.tool === 'codex' ? 'codex' : 'claude';
+    if (p.model !== undefined && p.model !== '' && (typeof p.model !== 'string' || !MODEL_NAME.test(p.model))) throw new PtyError(400, tr('nome de modelo inválido'));
+    const model = typeof p.model === 'string' && p.model ? p.model : undefined;
+    if (tool === 'codex') {
+      if (!this.opts.codexBin || !isExecutableFile(this.opts.codexBin)) throw new PtyError(503, tr('o Codex não foi encontrado no PATH (defina HABBLAUD_CODEX_BIN)'));
+    } else if (!isExecutableFile(this.opts.claudeBin)) {
+      // Antes de tudo (o "assumir" encerra a sessão de lá depois daqui): um claude que não roda abriria um terminal que
+      // sai na hora.
+      throw new PtyError(503, tr('o executável do Claude Code não roda: {0} (confira o HABBLAUD_CLAUDE_BIN)', [this.opts.claudeBin]));
+    }
     if (typeof p.cwd !== 'string' || !isAbsolute(p.cwd)) throw new PtyError(400, tr('informe a pasta do projeto (caminho absoluto)'));
     const cwd = resolve(p.cwd);
     let isDir = false;
@@ -389,27 +450,34 @@ export class PtyManager {
     if (!account) throw new PtyError(400, tr('conta desconhecida'));
     const running = [...this.ptys.values()].filter((t) => t.info.exitedAt === undefined).length;
     if (running + Math.max(0, reserved) >= MAX_PTYS) throw new PtyError(429, tr('limite de {0} terminais abertos', [MAX_PTYS]));
-    return { cwd, account, cols: clampInt(p.cols, 20, 400, 100), rows: clampInt(p.rows, 5, 200, 30) };
+    return { cwd, account, cols: clampInt(p.cols, 20, 400, 100), rows: clampInt(p.rows, 5, 200, 30), tool, ...(model ? { model } : {}) };
   }
 
   private spawn(plan: SpawnPlan, p: { resume?: string; from?: string } = {}): PtyInfo {
     const spawn = this.opts.spawn;
     if (!spawn) throw new PtyError(503, tr('terminal desligado: {0}', [this.opts.disabledReason ?? tr('indisponível')]));
-    const { cwd, account, cols, rows } = plan;
+    const { cwd, account, cols, rows, tool, model } = plan;
+    const codex = tool === 'codex';
     const env: NodeJS.ProcessEnv = { ...(this.opts.env ?? process.env), TERM: 'xterm-256color', COLORTERM: 'truecolor' };
     for (const k of INHERITED_SESSION_VARS) delete env[k];
-    if (account.isDefault) delete env.CLAUDE_CONFIG_DIR;
+    if (account.isDefault || codex) delete env.CLAUDE_CONFIG_DIR;
     else env.CLAUDE_CONFIG_DIR = account.dir;
 
     let proc: PtyProcess;
     try {
-      const args = p.resume ? ['--resume', p.resume] : [];
-      proc = spawn(this.opts.claudeBin, args, { cwd, cols, rows, env });
+      const args = p.resume ? ['--resume', p.resume] : [...(plan.extraArgs ?? []), ...newSessionArgs(tool, model, plan.prompt)];
+      proc = spawn(codex ? this.opts.codexBin! : this.opts.claudeBin, args, { cwd, cols, rows, env });
     } catch (err) {
-      throw new PtyError(500, tr('não consegui abrir o Claude Code: {0}', [errMsg(err)]));
+      throw new PtyError(500, codex ? tr('não consegui abrir o Codex: {0}', [errMsg(err)]) : tr('não consegui abrir o Claude Code: {0}', [errMsg(err)]));
     }
     const id = `p${++this.seq}-${proc.pid}`;
-    const info: PtyInfo = { id, pid: proc.pid, cwd, account: account.id, agentId: `${account.id}:${proc.pid}`, startedAt: this.now() };
+    // Codex: o personagem dele chega pelos hooks/arquivos do Codex, com outro id; o terminal fica sem ligação com ele.
+    const owner = codex ? 'codex' : account.id;
+    const info: PtyInfo = { id, pid: proc.pid, cwd, account: owner, agentId: `${owner}:${proc.pid}`, startedAt: this.now() };
+    if (codex) info.tool = 'codex';
+    if (model) info.model = model;
+    if (plan.by) info.by = plan.by;
+    if (plan.role) info.role = plan.role;
     if (p.resume) info.resumed = p.resume;
     if (p.from) info.fromAgent = p.from;
     const pty: Pty = { info, proc, screen: this.createScreen(cols, rows), clients: new Set(), pending: new Map() };

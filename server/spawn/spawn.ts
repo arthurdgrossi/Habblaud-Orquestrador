@@ -103,13 +103,30 @@ export function cliArgs(req: SpawnRequest): string[] {
 
 /** `claude --bg` na pasta do pedido; devolve o id curto que ele imprime ("backgrounded · 7eacc670 · nome"). */
 export function createCliRunner(bin: string, timeoutMs = CLI_TIMEOUT_MS): CliRunner {
+  const ID = /backgrounded\s*·\s*([\w-]+)/;
   return (req) =>
     new Promise((ok) => {
+      let done = false;
+      const finish = (r: CliResult) => {
+        if (done) return;
+        done = true;
+        ok(r);
+      };
       const child = execFile(bin, cliArgs(req), { cwd: req.folder, timeout: timeoutMs, windowsHide: true, encoding: 'utf8' }, (err, out, stderr) => {
-        const id = /backgrounded\s*·\s*([\w-]+)/.exec(out ?? '')?.[1];
-        if (!err && id) return ok({ ok: true, id });
+        const id = ID.exec(out ?? '')?.[1];
+        if (id) return finish({ ok: true, id });
+        if (!err) return finish({ ok: false, error: tr('o claude não começou a sessão') });
         const line = [stderr, out, err?.message].map((t) => (t ?? '').split('\n').map((l) => l.trim()).find(Boolean)).find(Boolean);
-        ok({ ok: false, error: (line ?? tr('o claude não começou a sessão')).slice(0, ERROR_MAX) });
+        finish({ ok: false, error: (line ?? tr('o claude não começou a sessão')).slice(0, ERROR_MAX) });
+      });
+      // A sessão já começou quando o id aparece. Não espera o processo sair: na primeira vez ele sobe o serviço de
+      // segundo plano, que pode herdar a saída e segurá-la até o prazo; aí o pedido "falhava" depois de começar, caía
+      // no app e a pessoa tentava de novo (dois agentes).
+      let seen = '';
+      child.stdout?.on('data', (chunk: string) => {
+        seen = (seen + chunk).slice(-4_096);
+        const id = ID.exec(seen)?.[1];
+        if (id) finish({ ok: true, id });
       });
       child.stdin?.end();
     });
@@ -183,7 +200,12 @@ export interface SpawnServiceOptions {
   writeFiles?: (spawnId: string, files: readonly Attachment[]) => string[];
   now?: () => number;
   newId?: () => string;
+  /** Cada pedido resolvido (para o log do servidor). */
+  onResult?: (info: SpawnInfo) => void;
 }
+
+/** O mesmo pedido (pasta + texto) de novo dentro deste prazo depois de abrir devolve o anterior, sem abrir outro. */
+export const REPEAT_MS = 60_000;
 
 export type SpawnSubmit = { spawn: SpawnInfo } | { error: 'invalid' | 'unavailable' | 'too-many'; reason: string };
 
@@ -211,6 +233,20 @@ export class SpawnService {
     if ('error' in req) return { error: 'invalid', reason: req.error };
     if (!this.available()) {
       return { error: 'unavailable', reason: tr('o auxiliar do computador não está rodando: deixe npm run codex:bridge no ar (o Habblaud está no Docker)') };
+    }
+    const hasFiles = (() => {
+      const ids = raw && typeof raw === 'object' ? (raw as { attachments?: unknown }).attachments : undefined;
+      return Array.isArray(ids) && ids.length > 0;
+    })();
+    // Clique repetido (ou a página reenviando): o mesmo pedido ainda abrindo, ou que acabou de abrir, não abre outro
+    // agente. Pedido com anexos é sempre novo (os anexos são de uso único).
+    if (!hasFiles) {
+      for (const e of this.entries.values()) {
+        if (e.req.folder !== req.folder || e.req.prompt !== req.prompt) continue;
+        const inFlight = e.info.status === 'queued' || e.info.status === 'sent';
+        const justOpened = e.info.status === 'opened' && this.now() - e.at <= REPEAT_MS;
+        if (inFlight || justOpened) return { spawn: { ...e.info } };
+      }
     }
     let open = 0;
     for (const e of this.entries.values()) if (e.info.status === 'queued' || e.info.status === 'sent') open++;
@@ -299,6 +335,7 @@ export class SpawnService {
       if (r.note) e.info.note = r.note;
     }
     e.at = this.now();
+    this.opts.onResult?.({ ...e.info });
   }
 
   private prune(): void {

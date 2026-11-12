@@ -1,5 +1,6 @@
 // Barra superior: marca, conexão, contadores, uso por conta e botões de controle.
 import { access } from '../net/access';
+import { ProjectsPanel } from './projects';
 import { SpawnPanel } from './spawn';
 import type { UiComponent, UiContext } from './context';
 import { h, iconButton, setAttr, setHidden, setText, setTitle, setVariant } from './dom';
@@ -51,6 +52,8 @@ export class TopBar implements UiComponent {
   readonly worldBtn: HTMLButtonElement;
   private readonly spawnBtn: HTMLButtonElement;
   private readonly spawnPanel: SpawnPanel;
+  private readonly projectsBtn: HTMLButtonElement;
+  private readonly projectsPanel: ProjectsPanel;
   /** Grupo dos botões de painéis (feed, Habblaud World, configurações, ajuda); o histórico entra aqui (ui/index.ts). */
   readonly panelGroup: HTMLElement;
 
@@ -116,6 +119,11 @@ export class TopBar implements UiComponent {
     this.spawnBtn = iconButton(ICONS.newAgent, tr('Novo agente: começa uma sessão do Claude Code no computador'), () => this.spawnPanel.toggle(this.spawnBtn), 'ui-btn-spawn');
     this.spawnBtn.setAttribute('aria-haspopup', 'dialog');
     this.spawnBtn.hidden = true;
+    this.projectsPanel = new ProjectsPanel(ctx);
+    ctx.root.append(this.projectsPanel.el);
+    this.projectsBtn = iconButton(ICONS.folder, tr('Projetos: abre uma sessão do Claude Code ou do Codex num projeto salvo'), () => this.projectsPanel.toggle(this.projectsBtn), 'ui-btn-projects');
+    this.projectsBtn.setAttribute('aria-haspopup', 'dialog');
+    this.projectsBtn.hidden = true;
     this.version = new VersionChip(ctx, this.settingsBtn);
     this.status = h('div', { class: 'ui-topbar__status' }, this.pill, this.version.el, this.demoBadge);
     const viewGroup = h(
@@ -128,6 +136,7 @@ export class TopBar implements UiComponent {
     const panelGroup = h(
       'div',
       { class: 'ui-btn-group', role: 'group', attrs: { 'aria-label': tr('Painéis') } },
+      this.projectsBtn,
       this.spawnBtn,
       this.timelapseBtn,
       this.feedBtn,
@@ -220,6 +229,7 @@ export class TopBar implements UiComponent {
     this.usage.render();
     this.version.render();
     setHidden(this.spawnBtn, !access().spawn || store.mock || store.replaying);
+    setHidden(this.projectsBtn, !this.ctx.terminals?.interactiveEnabled || !access().local || store.mock || store.replaying);
 
     this.sidebarBtn.setAttribute('aria-pressed', String(this.ctx.isPanelOpen('sidebar')));
     this.feedBtn.setAttribute('aria-pressed', String(this.ctx.isPanelOpen('feed')));

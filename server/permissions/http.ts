@@ -8,7 +8,7 @@
 //   POST /api/permissions/:id/decision    (página)  {behavior: allow | deny | terminal | answer, message?, answers?, ...}
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { HttpError, readJson, sendJson } from '../http/app';
-import { InvalidRequest, parseDecision, WAIT_MAX_MS, type PermissionRegistry } from './registry';
+import { InvalidRequest, parseDecision, WAIT_MAX_MS, type PermissionRegistry, type SkipReason } from './registry';
 import { tr } from '../../shared/i18n';
 
 const ITEM = /^\/api\/permissions\/([^/]+)(?:\/(wait|decision))?$/;
@@ -32,12 +32,30 @@ export function waitMs(url: URL): number {
   return Math.min(WAIT_MAX_MS, Math.max(50, raw * 1_000));
 }
 
-export function createPermissionRoutes(registry: PermissionRegistry): (req: IncomingMessage, res: ServerResponse, path: string) => void {
+/** Por que um pedido ficou só no terminal (para o log do servidor: sem isso não dá para saber por que não apareceu). */
+export function skipMessage(reason: SkipReason, tool: string): string {
+  const why: Record<SkipReason, string> = {
+    'no-viewers': tr('nenhuma página do Habblaud aberta por http://localhost'),
+    'unknown-session': tr('a sessão ainda não está no escritório'),
+    'unsupported-tool': tr('pergunta que o escritório não consegue mostrar inteira'),
+    'too-many': tr('pedidos demais esperando resposta'),
+  };
+  return tr('Pedido de permissão ({0}) ficou só no terminal: {1}.', [tool, why[reason]]);
+}
+
+export function createPermissionRoutes(
+  registry: PermissionRegistry,
+  onSkip?: (reason: SkipReason, tool: string) => void,
+): (req: IncomingMessage, res: ServerResponse, path: string) => void {
   const register = async (req: IncomingMessage, res: ServerResponse) => {
     const body = await readJson(req);
     const r = registry.register(body);
-    if ('skip' in r) sendJson(res, 200, { skip: r.skip });
-    else sendJson(res, 201, r);
+    if ('skip' in r) {
+      const b = body as { tool_name?: unknown; tool?: unknown } | null;
+      const tool = typeof b?.tool_name === 'string' ? b.tool_name : typeof b?.tool === 'string' ? b.tool : '?';
+      onSkip?.(r.skip, tool);
+      sendJson(res, 200, { skip: r.skip });
+    } else sendJson(res, 201, r);
   };
 
   const wait = (req: IncomingMessage, res: ServerResponse, id: string) => {

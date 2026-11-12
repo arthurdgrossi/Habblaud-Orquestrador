@@ -145,8 +145,20 @@ describe('codex-install.ts (funções puras)', () => {
     expect(chooseNode(probe, ['/opt/homebrew/bin/node'])).toEqual({ login: 'v22.12.0' });
     // Nenhum 22+: `node` mesmo (o instalador avisa).
     expect(chooseNode(() => undefined, ['/x/node'])).toEqual({ login: undefined });
-    expect(hookCommand('/repo/mod/habblaud-codex/hook.mjs', '/opt/homebrew/bin/node')).toBe('"/opt/homebrew/bin/node" "/repo/mod/habblaud-codex/hook.mjs"');
+    expect(hookCommand('/repo/mod/habblaud-codex/hook.mjs', '/opt/homebrew/bin/node', 'darwin')).toBe('"/opt/homebrew/bin/node" "/repo/mod/habblaud-codex/hook.mjs"');
     expect(scriptPathOf('"/opt/homebrew/bin/node" "/repo/mod/habblaud-codex/hook.mjs"')).toBe('/repo/mod/habblaud-codex/hook.mjs');
+  });
+
+  it('no Windows o comando roda no PowerShell, no cmd e no bash: barras normais e aspas duplas', () => {
+    const hook = 'C:\\Users\\ana\\habblaud\\mod\\habblaud-codex\\hook.mjs';
+    expect(hookCommand(hook, undefined, 'win32')).toBe('node "C:/Users/ana/habblaud/mod/habblaud-codex/hook.mjs"');
+    // Node com espaço no caminho ("Program Files") não tem forma que valha nos três shells: fica o `node` do PATH.
+    expect(hookCommand(hook, 'C:\\Program Files\\nodejs\\node.exe', 'win32')).toBe('node "C:/Users/ana/habblaud/mod/habblaud-codex/hook.mjs"');
+    expect(hookCommand(hook, 'C:\\nvm\\v22\\node.exe', 'win32')).toBe('C:/nvm/v22/node.exe "C:/Users/ana/habblaud/mod/habblaud-codex/hook.mjs"');
+    const cmd = hookCommand(hook, undefined, 'win32');
+    expect(cmd).not.toContain("'");
+    expect(scriptPathOf(cmd)).toBe('C:/Users/ana/habblaud/mod/habblaud-codex/hook.mjs');
+    expect(isOurHandler({ command: cmd })).toBe(true);
   });
 });
 
