@@ -1,5 +1,6 @@
 // Regras do painel "Projetos" sem DOM (testáveis): id novo, nome sugerido pela pasta, modelos sugeridos por
 // ferramenta e o que vai para o servidor (PUT /api/projects; server/projects/store.ts valida de novo).
+import { tr } from '../../../shared/i18n';
 import type { SavedProject } from '../../../shared/types';
 
 export type ProjectTool = 'claude' | 'codex';
@@ -7,8 +8,26 @@ export type ProjectTool = 'claude' | 'codex';
 /** Sugestões do campo de modelo (o campo aceita qualquer nome; vazio = o padrão da ferramenta). */
 export const MODEL_SUGGESTIONS: Readonly<Record<ProjectTool, readonly string[]>> = {
   claude: ['opus', 'sonnet', 'haiku', 'opusplan'],
-  codex: [],
+  codex: ['gpt-6.1-sol', 'gpt-6-astra', 'gpt-6.1-terra', 'gpt-6-sol', 'gpt-6-luna'],
 };
+
+/** Para que serve cada modelo sugerido (aparece ao lado do nome na lista do campo). */
+export function modelHint(model: string): string | undefined {
+  switch (model) {
+    case 'gpt-6.1-sol':
+      return tr('Uso geral e programação');
+    case 'gpt-6-astra':
+      return tr('Tarefas de maior complexidade');
+    case 'gpt-6.1-terra':
+      return tr('Variante Codex para programação');
+    case 'gpt-6-sol':
+      return tr('Modelo da geração anterior');
+    case 'gpt-6-luna':
+      return tr('Opção rápida para tarefas simples');
+    default:
+      return undefined;
+  }
+}
 
 /** Mesmo formato aceito pelo servidor: sem espaço nem nada de shell. */
 const MODEL_NAME = /^[A-Za-z0-9][A-Za-z0-9._:[\]-]{0,79}$/;

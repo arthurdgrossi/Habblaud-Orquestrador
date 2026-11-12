@@ -3437,4 +3437,9 @@ export const FR: Readonly<Record<string, string>> = {
   "Sessões que ele abriu": "Sessions qu'il a ouvertes",
   "orquestrador": "orchestrateur",
   "sessão aberta pelo orquestrador": "session ouverte par l'orchestrateur",
+  "Uso geral e programação": "Usage général et programmation",
+  "Tarefas de maior complexidade": "Tâches plus complexes",
+  "Variante Codex para programação": "Variante Codex pour la programmation",
+  "Modelo da geração anterior": "Modèle de la génération précédente",
+  "Opção rápida para tarefas simples": "Option rapide pour les tâches simples",
 };

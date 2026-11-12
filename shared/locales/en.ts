@@ -3420,4 +3420,9 @@ export const EN: Readonly<Record<string, string>> = {
   "Sessões que ele abriu": "Sessions it opened",
   "orquestrador": "orchestrator",
   "sessão aberta pelo orquestrador": "session opened by the orchestrator",
+  "Uso geral e programação": "General use and coding",
+  "Tarefas de maior complexidade": "More complex tasks",
+  "Variante Codex para programação": "Codex variant for coding",
+  "Modelo da geração anterior": "Previous-generation model",
+  "Opção rápida para tarefas simples": "Fast option for simple tasks",
 };

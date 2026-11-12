@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isValidModel, looksAbsolute, nameFromPath, newProjectId, toolOf, toSaved } from './projects-model';
+import { isValidModel, looksAbsolute, MODEL_SUGGESTIONS, modelHint, nameFromPath, newProjectId, toolOf, toSaved } from './projects-model';
 
 describe('painel Projetos', () => {
   it('pasta absoluta no Windows, macOS e Linux; nome sugerido pela última parte', () => {
@@ -22,6 +22,11 @@ describe('painel Projetos', () => {
     const codex = toSaved({ id: 'b', name: 'B', path: '/y', tool: 'codex', model: 'gpt-5.5-codex' });
     expect(codex).toEqual({ id: 'b', name: 'B', path: '/y', tool: 'codex', model: 'gpt-5.5-codex' });
     expect(toolOf(codex)).toBe('codex');
+    // Sugestões do Codex: todas válidas para o servidor e com a descrição de para que servem.
+    for (const m of MODEL_SUGGESTIONS.codex) {
+      expect(isValidModel(m), m).toBe(true);
+      expect(modelHint(m), m).toBeTruthy();
+    }
     expect(toolOf({ id: 'a', name: 'A', path: '/x' })).toBe('claude');
   });
 });

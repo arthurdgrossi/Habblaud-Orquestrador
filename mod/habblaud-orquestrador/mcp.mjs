@@ -95,14 +95,14 @@ const TOOLS = [
   {
     name: 'abrir_sessao',
     description:
-      'Abre uma sessão nova (terminal interativo no Habblaud) num projeto salvo, já com a tarefa. Ferramenta e modelo: os do projeto, se não forem informados. Modelos do Claude Code: opus, sonnet, haiku. No máximo 4 sessões abertas por você ao mesmo tempo.',
+      'Abre uma sessão nova (terminal interativo no Habblaud) num projeto salvo, já com a tarefa. Ferramenta e modelo: os do projeto, se não forem informados. Modelos do Claude Code: opus, sonnet, haiku. Modelos do Codex: gpt-6.1-sol (uso geral), gpt-6-astra (mais complexo), gpt-6.1-terra (programação), gpt-6-sol (geração anterior), gpt-6-luna (rápido, simples). No máximo 4 sessões abertas por você ao mesmo tempo.',
     inputSchema: {
       type: 'object',
       properties: {
         projeto: { type: 'string', description: 'id ou nome do projeto (de listar_projetos)' },
         tarefa: { type: 'string', description: 'a tarefa completa, que se explica sozinha: objetivo, área, critério de pronto, o que não fazer' },
         ferramenta: { type: 'string', enum: ['claude', 'codex'] },
-        modelo: { type: 'string', description: 'ex.: opus, sonnet, haiku; vazio = o do projeto ou o padrão da ferramenta' },
+        modelo: { type: 'string', description: 'ex.: opus, sonnet, haiku, gpt-6.1-sol, gpt-6-luna; vazio = o do projeto ou o padrão da ferramenta' },
       },
       required: ['projeto', 'tarefa'],
       additionalProperties: false,

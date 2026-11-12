@@ -39,7 +39,9 @@ não escreve código nos projetos: quem trabalha são as sessões que você abre
 2. **Antes de abrir sessões, mostre o plano em poucas linhas** (tarefa → projeto, ferramenta, modelo) e siga.
 3. **Escolha do modelo:** \`opus\` para tarefas difíceis (arquitetura, bugs difíceis, mudanças grandes); \`sonnet\` para
    o trabalho normal de código; \`haiku\` para o trivial (renomear, ajustar texto, rodar um comando). Use o Codex
-   quando a pessoa pedir ou quando o projeto estiver salvo com ele.
+   quando a pessoa pedir ou quando o projeto estiver salvo com ele. Modelos do Codex: \`gpt-6.1-sol\` (uso geral e
+   programação), \`gpt-6-astra\` (tarefas de maior complexidade), \`gpt-6.1-terra\` (variante Codex para programação),
+   \`gpt-6-sol\` (geração anterior) e \`gpt-6-luna\` (rápido, para o simples).
 4. **A tarefa de cada sessão precisa se explicar sozinha:** o objetivo, os arquivos ou a área, o critério de pronto
    e o que não fazer. A sessão não vê esta conversa.
 5. **Você não aprova pedidos de permissão.** Toda permissão das sessões vai para a pessoa, no Habblaud. Se uma sessão

@@ -7,7 +7,7 @@ import type { SavedProject } from '../../../shared/types';
 import type { UiContext } from './context';
 import { h, iconButton, setText } from './dom';
 import { ICONS } from './icons';
-import { isValidModel, looksAbsolute, MODEL_SUGGESTIONS, nameFromPath, newProjectId, toolOf, toSaved, type ProjectTool } from './projects-model';
+import { isValidModel, looksAbsolute, MODEL_SUGGESTIONS, modelHint, nameFromPath, newProjectId, toolOf, toSaved, type ProjectTool } from './projects-model';
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response;
@@ -57,7 +57,13 @@ function modelInput(value: string, tool: ProjectTool, label: string): { input: H
     attrs: { list: id, placeholder: tr('modelo padrão'), spellcheck: 'false', autocomplete: 'off', autocapitalize: 'none', maxlength: 80, 'aria-label': label },
   });
   input.value = value;
-  const setTool = (t: ProjectTool) => list.replaceChildren(...MODEL_SUGGESTIONS[t].map((m) => h('option', { attrs: { value: m } })));
+  const setTool = (t: ProjectTool) =>
+    list.replaceChildren(
+      ...MODEL_SUGGESTIONS[t].map((m) => {
+        const hint = modelHint(m);
+        return h('option', { attrs: hint ? { value: m, label: hint } : { value: m } });
+      }),
+    );
   setTool(tool);
   return { input, list, setTool };
 }

@@ -27,6 +27,10 @@ do meio (0.**3**.0).
   painel explica para que ele serve, por que vem desligado e o comando para ligar (`HABBLAUD_PTY=1 npm start`).
 - **Escritório vazio: “Abrir um projeto”.** Ao lado de “Ver demonstração”, um botão leva direto ao painel Projetos
   para começar uma sessão de verdade.
+- **Modelos do Codex nos Projetos.** O campo de modelo sugere, para o Codex, `gpt-6.1-sol` (uso geral e
+  programação), `gpt-6-astra` (tarefas de maior complexidade), `gpt-6.1-terra` (variante Codex para programação),
+  `gpt-6-sol` (geração anterior) e `gpt-6-luna` (rápido, para tarefas simples), cada um com a descrição na lista. O
+  orquestrador também conhece esses modelos ao abrir sessões do Codex.
 - **O orquestrador à vista no escritório.** Na lista e nas gavetas, o crachá dourado **Orquestrador · 3/4** mostra
   quantas sessões ele tem abertas, e as sessões que ele abriu ganham o crachá **Do orquestrador** (também as do
   Codex, ligadas pela pasta e pela hora em que começaram). Na gaveta dele, **Sessões que ele abriu** lista cada uma;
